@@ -1,0 +1,3 @@
+[submodule "youbet/lib/forge-std"]
+	path = youbet/lib/forge-std
+	url = https://github.com/foundry-rs/forge-std
