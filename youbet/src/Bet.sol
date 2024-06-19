@@ -3,8 +3,12 @@ pragma solidity ^0.8.13;
 
 import "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 
+// support different settle ways
+// support different task count
+// TODO: support cycle goal
+
 contract Bet {
-    struct Project {
+    struct Goal {
         uint id;
         string name;
         string description;
@@ -12,11 +16,12 @@ contract Bet {
         address creator;
         bool completed;
         address[] participants;
+        uint taskCount;
         mapping(address => bool) isParticipant;
         mapping(address => bool) isConfirmed;
     }
 
-    struct ProjectInfo {
+    struct GoalInfo {
         uint id;
         string name;
         string description;
@@ -26,19 +31,20 @@ contract Bet {
         address[] participants;
     }
 
-    Project[] private projects;
-    mapping(address => uint[]) private userProjects;
+    Goal[] private goals;
+    mapping(address => uint[]) private userGoals;
     address public contractOwner;
 
-    event ProjectCreated(
+    event GoalCreated(
         uint id,
         string name,
         string description,
         uint requiredStake,
+        uint taskCount,
         address creator
     );
-    event ProjectUnlocked(uint id, address user, uint stakeAmount);
-    event ProjectConfirmed(uint id, address user);
+    event GoalUnlocked(uint id, address user, uint stakeAmount);
+    event GoalConfirmed(uint id, address user);
     event StakeClaimed(uint id, address user, uint stakeAmount);
 
     constructor() {
@@ -50,122 +56,132 @@ contract Bet {
         _;
     }
 
-    function createProject(
+    function createGoal(
         string memory _name,
         string memory _description,
         uint _requiredStake
     ) public {
-        uint projectId = projects.length;
-        Project storage newProject = projects.push();
-        newProject.id = projectId;
-        newProject.name = _name;
-        newProject.description = _description;
-        newProject.requiredStake = _requiredStake;
-        newProject.creator = msg.sender;
-        newProject.completed = false;
+        uint defaultTaskCount = 1;
+        createGoal(_name, _description, _requiredStake, defaultTaskCount);
+    }
 
-        emit ProjectCreated(
-            projectId,
+    function createGoal(
+        string memory _name,
+        string memory _description,
+        uint _requiredStake,
+        uint _taskCount
+    ) public {
+        uint goalId = goals.length;
+        Goal storage newGoal = goals.push();
+        newGoal.id = goalId;
+        newGoal.name = _name;
+        newGoal.description = _description;
+        newGoal.requiredStake = _requiredStake;
+        newGoal.creator = msg.sender;
+        newGoal.taskCount = _taskCount;
+        newGoal.completed = false;
+
+        emit GoalCreated(
+            goalId,
             _name,
             _description,
             _requiredStake,
+            _taskCount,
             msg.sender
         );
     }
 
     // show stake amount in wei for debugging
     event DebugLog(uint msgValue, uint requiredStake);
-    function stakeAndUnlockProject(uint _projectId) public payable {
-        require(_projectId < projects.length, "Project does not exist.");
-        Project storage project = projects[_projectId];
-        emit DebugLog(msg.value, project.requiredStake);
+    function stakeAndUnlockGoal(uint _goalId) public payable {
+        require(_goalId < goals.length, "Goal does not exist.");
+        Goal storage goal = goals[_goalId];
+        emit DebugLog(msg.value, goal.requiredStake);
 
-        require(msg.value == project.requiredStake, "Incorrect stake amount.");
+        require(msg.value == goal.requiredStake, "Incorrect stake amount.");
         require(
-            !project.isParticipant[msg.sender],
-            "Already participated in this project."
+            !goal.isParticipant[msg.sender],
+            "Already participated in this goal."
         );
 
-        project.participants.push(msg.sender);
-        project.isParticipant[msg.sender] = true;
-        userProjects[msg.sender].push(_projectId);
+        goal.participants.push(msg.sender);
+        goal.isParticipant[msg.sender] = true;
+        userGoals[msg.sender].push(_goalId);
 
-        emit ProjectUnlocked(_projectId, msg.sender, msg.value);
+        emit GoalUnlocked(_goalId, msg.sender, msg.value);
     }
 
-    function confirmCompletion(uint _projectId, address _user) public {
-        require(_projectId < projects.length, "Project does not exist.");
-        Project storage project = projects[_projectId];
+    function confirmCompletion(uint _goalId, address _user) public {
+        require(_goalId < goals.length, "Goal does not exist.");
+        Goal storage goal = goals[_goalId];
         require(
-            msg.sender == project.creator,
-            "Only project creator can confirm completion."
+            msg.sender == goal.creator,
+            "Only goal creator can confirm completion."
         );
         require(
-            project.isParticipant[_user],
-            "User is not a participant of this project."
+            goal.isParticipant[_user],
+            "User is not a participant of this goal."
         );
-        require(!project.isConfirmed[_user], "User already confirmed.");
+        require(!goal.isConfirmed[_user], "User already confirmed.");
 
-        project.isConfirmed[_user] = true;
+        goal.isConfirmed[_user] = true;
 
-        emit ProjectConfirmed(_projectId, _user);
+        emit GoalConfirmed(_goalId, _user);
     }
 
-    function claimStake(uint _projectId) public {
-        require(_projectId < projects.length, "Project does not exist.");
-        Project storage project = projects[_projectId];
+    function claimStake(uint _goalId) public {
+        require(_goalId < goals.length, "Goal does not exist.");
+        Goal storage goal = goals[_goalId];
         require(
-            project.isParticipant[msg.sender],
-            "Not a participant of this project."
+            goal.isParticipant[msg.sender],
+            "Not a participant of this goal."
         );
-        require(project.isConfirmed[msg.sender], "Project not finished yet.");
+        require(goal.isConfirmed[msg.sender], "Goal not finished yet.");
 
-        uint stakeAmount = project.requiredStake;
-        project.isParticipant[msg.sender] = false;
-        project.isConfirmed[msg.sender] = false;
+        uint stakeAmount = goal.requiredStake;
+        goal.isParticipant[msg.sender] = false;
+        goal.isConfirmed[msg.sender] = false;
 
         payable(msg.sender).transfer(stakeAmount);
 
-        emit StakeClaimed(_projectId, msg.sender, stakeAmount);
+        emit StakeClaimed(_goalId, msg.sender, stakeAmount);
     }
 
-    function getAllProjects() public view returns (ProjectInfo[] memory) {
-        ProjectInfo[] memory projectInfos = new ProjectInfo[](projects.length);
-        for (uint i = 0; i < projects.length; i++) {
-            Project storage project = projects[i];
-            projectInfos[i] = ProjectInfo(
-                project.id,
-                project.name,
-                project.description,
-                project.requiredStake,
-                project.creator,
-                project.completed,
-                project.participants
+    function getAllGoals() public view returns (GoalInfo[] memory) {
+        GoalInfo[] memory goalInfos = new GoalInfo[](goals.length);
+        for (uint i = 0; i < goals.length; i++) {
+            Goal storage goal = goals[i];
+            goalInfos[i] = GoalInfo(
+                goal.id,
+                goal.name,
+                goal.description,
+                goal.requiredStake,
+                goal.creator,
+                goal.completed,
+                goal.participants
             );
         }
-        return projectInfos;
+        return goalInfos;
     }
 
-    function getUserProjects(
-        address _user
-    ) public view returns (uint[] memory) {
-        return userProjects[_user];
+    function getUserGoals(address _user) public view returns (uint[] memory) {
+        return userGoals[_user];
     }
 
-    function getProjectDetails(
-        uint _projectId
-    ) public view returns (ProjectInfo memory) {
-        require(_projectId < projects.length, "Project does not exist.");
-        Project storage project = projects[_projectId];
+    function getGoalDetails(
+        uint _goalId
+    ) public view returns (GoalInfo memory) {
+        require(_goalId < goals.length, "Goal does not exist.");
+        Goal storage goal = goals[_goalId];
         return
-            ProjectInfo(
-                project.id,
-                project.name,
-                project.description,
-                project.requiredStake,
-                project.creator,
-                project.completed,
-                project.participants
+            GoalInfo(
+                goal.id,
+                goal.name,
+                goal.description,
+                goal.requiredStake,
+                goal.creator,
+                goal.completed,
+                goal.participants
             );
     }
 }
