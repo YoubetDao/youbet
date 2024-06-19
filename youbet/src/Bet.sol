@@ -207,6 +207,7 @@ contract Bet {
         uint totalStake = 0;
         uint totalCompletedTasks = 0;
         uint totalParticipants = goal.participants.length;
+        // TODO: the minimum fee can cover our cost.
         uint fee = (totalParticipants * goal.requiredStake) / 100;
 
         for (uint i = 0; i < totalParticipants; i++) {
@@ -219,7 +220,7 @@ contract Bet {
             totalStake > fee,
             "No stakes to distribute after fee deduction"
         );
-        totalStake -= fee; // 扣除费用
+        totalStake -= fee;
 
         for (uint i = 0; i < totalParticipants; i++) {
             address participant = goal.participants[i];
