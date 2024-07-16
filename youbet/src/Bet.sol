@@ -288,17 +288,17 @@ contract Bet {
         emit TaskCreated(taskId, _sub);
     }
 
-    function linkWallet(string memory github) public {
+    function linkWallet(address wallet, string memory github) public onlyOwner {
         require(
-            keccak256(abi.encodePacked(walletToGithub[msg.sender])) ==
+            keccak256(abi.encodePacked(walletToGithub[wallet])) ==
                 keccak256(abi.encodePacked("")),
             "Wallet already linked to a Github account."
         );
 
-        walletToGithub[msg.sender] = github;
-        githubToWallet[github] = msg.sender;
+        walletToGithub[wallet] = github;
+        githubToWallet[github] = wallet;
 
-        emit WalletLinked(msg.sender, github);
+        emit WalletLinked(wallet, github);
     }
 
     function confirmTask(uint _taskId, string memory github) public {

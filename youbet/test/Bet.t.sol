@@ -69,14 +69,14 @@ contract BetTest is Test {
     }
 
     function testLinkWallet() public {
-        bet.linkWallet("TestGithub");
+        bet.linkWallet(address(this), "TestGithub");
         string memory github = bet.getGithubByWallet(address(this));
 
         assertEq(github, "TestGithub", "Github account should be 'TestGithub'");
     }
 
     function testConfirmTask() public {
-        bet.linkWallet("TestGithub");
+        bet.linkWallet(address(this), "TestGithub");
         bet.createTask("Test Task 1");
 
         bet.confirmTask(0, "TestGithub");
@@ -91,7 +91,7 @@ contract BetTest is Test {
     }
 
     function testGetUserPoints() public {
-        bet.linkWallet("TestGithub");
+        bet.linkWallet(address(this), "TestGithub");
         bet.createTask("Test Task 1");
 
         bet.confirmTask(0, "TestGithub");
@@ -101,7 +101,7 @@ contract BetTest is Test {
     }
 
     function testGetUserCompletedTasks() public {
-        bet.linkWallet("TestGithub");
+        bet.linkWallet(address(this), "TestGithub");
         bet.createTask("Test Task 1");
         bet.createTask("Test Task 2");
 
