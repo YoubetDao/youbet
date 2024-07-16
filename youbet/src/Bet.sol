@@ -2,43 +2,10 @@
 pragma solidity ^0.8.13;
 
 import "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-
-// support different settle ways
-// support different task count
-// TODO: support cycle goal
+import "./Goal.sol";
+import "./GoalType.sol";
 
 contract Bet {
-    enum GoalType {
-        Solo,
-        Gambling
-    }
-
-    struct Goal {
-        uint id;
-        string name;
-        string description;
-        uint requiredStake;
-        address creator;
-        bool completed;
-        address[] participants;
-        uint taskCount;
-        GoalType goalType;
-        mapping(address => bool) isParticipant;
-        mapping(address => bool) isClaimed;
-        mapping(address => uint) completedTaskCount; // 使用 uint 来记录每个用户完成的任务数量
-        mapping(address => uint) rewards; // 记录每个用户应得的奖励
-    }
-
-    struct GoalInfo {
-        uint id;
-        string name;
-        string description;
-        uint requiredStake;
-        address creator;
-        bool completed;
-        address[] participants;
-        GoalType goalType;
-    }
 
     Goal[] private goals;
     mapping(address => uint[]) private userGoals;
@@ -54,7 +21,7 @@ contract Bet {
         address creator
     );
     event GoalUnlocked(uint id, address user, uint stakeAmount);
-    event TaskConfirmed(uint id, address user, uint taskIndex); // 修改为任务确认事件
+    event TaskConfirmed(uint id, address user, uint taskIndex);
     event StakeClaimed(uint id, address user, uint stakeAmount);
     event GoalSettled(uint id);
 
@@ -126,8 +93,8 @@ contract Bet {
         );
     }
 
-    // show stake amount in wei for debugging
     event DebugLog(uint msgValue, uint requiredStake);
+
     function stakeAndUnlockGoal(uint _goalId) public payable {
         require(_goalId < goals.length, "Goal does not exist.");
         Goal storage goal = goals[_goalId];
@@ -207,7 +174,7 @@ contract Bet {
         uint totalStake = 0;
         uint totalCompletedTasks = 0;
         uint totalParticipants = goal.participants.length;
-        // TODO: the minimum fee can cover our cost.
+        // TODO: make sure the minimum fee can cover our cost.
         uint fee = (totalParticipants * goal.requiredStake) / 100;
 
         for (uint i = 0; i < totalParticipants; i++) {

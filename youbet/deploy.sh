@@ -6,4 +6,4 @@ fi
 source ../.env
 NETWORK=$1
 
-forge create --gas-price 100gwei --rpc-url $NETWORK src/Bet.sol:Bet --private-key $PRIVATE_KEY
+forge create --gas-price 10gwei --rpc-url $NETWORK src/Bet.sol:Bet --private-key $PRIVATE_KEY

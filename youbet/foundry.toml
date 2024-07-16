@@ -8,3 +8,4 @@ libs = ["lib"]
 [rpc_endpoints]
 linea-sepolia = "https://rpc.sepolia.linea.build"
 linea-mainnet = "https://rpc.linea.build"
+scroll-sepolia = "https://sepolia-rpc.scroll.io"

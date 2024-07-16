@@ -3,6 +3,8 @@ pragma solidity ^0.8.13;
 
 import {Test, console} from "forge-std/Test.sol";
 import {Bet} from "../src/Bet.sol";
+import "../src/GoalType.sol";
+import "../src/Goal.sol";
 
 contract BetTest is Test {
     Bet public bet;
@@ -13,11 +15,11 @@ contract BetTest is Test {
 
     function testCreateGoal() public {
         bet.createGoal("Test Goal", "This is a test goal", 1 ether, 5);
-        Bet.GoalInfo[] memory goals = bet.getAllGoals();
+        GoalInfo[] memory goals = bet.getAllGoals();
 
         assertEq(goals.length, 1, "Goal count should be 1");
 
-        Bet.GoalInfo memory goal = goals[0];
+        GoalInfo memory goal = goals[0];
         assertEq(goal.name, "Test Goal", "Goal name should be 'Test Goal'");
         assertEq(
             goal.description,
@@ -31,7 +33,7 @@ contract BetTest is Test {
         );
         assertEq(
             uint(goal.goalType),
-            uint(Bet.GoalType.Gambling),
+            uint(GoalType.Gambling),
             "Goal type should be Gambling"
         );
     }
