@@ -6,9 +6,14 @@ import "./Goal.sol";
 import "./GoalType.sol";
 
 contract Bet {
-
     Goal[] private goals;
+    Task[] private tasks;
     mapping(address => uint[]) private userGoals;
+    mapping(address => string) private walletToGithub;
+    mapping(string => address) private githubToWallet;
+    mapping(address => uint) private userPoints;
+    mapping(address => uint[]) private userCompletedTasks;
+    mapping(string => uint) private subToTaskId;
     address public contractOwner;
 
     event GoalCreated(
@@ -20,10 +25,12 @@ contract Bet {
         GoalType goalType,
         address creator
     );
+    event TaskCreated(uint id, string sub);
     event GoalUnlocked(uint id, address user, uint stakeAmount);
     event TaskConfirmed(uint id, address user, uint taskIndex);
     event StakeClaimed(uint id, address user, uint stakeAmount);
     event GoalSettled(uint id);
+    event WalletLinked(address wallet, string githubId);
 
     constructor() {
         contractOwner = msg.sender;
@@ -191,9 +198,9 @@ contract Bet {
 
         for (uint i = 0; i < totalParticipants; i++) {
             address participant = goal.participants[i];
-            uint userCompletedTasks = goal.completedTaskCount[participant];
-            if (userCompletedTasks > 0) {
-                uint reward = (totalStake * userCompletedTasks) /
+            uint userCompletedTaskCount = goal.completedTaskCount[participant];
+            if (userCompletedTaskCount > 0) {
+                uint reward = (totalStake * userCompletedTaskCount) /
                     totalCompletedTasks;
                 goal.rewards[participant] = reward;
             }
@@ -241,5 +248,95 @@ contract Bet {
                 goal.participants,
                 goal.goalType
             );
+    }
+
+    function getAllTasks() public view returns (Task[] memory) {
+        return tasks;
+    }
+
+    function getUnconfirmedTasks() public view returns (Task[] memory) {
+        uint count = 0;
+        for (uint i = 0; i < tasks.length; i++) {
+            if (!tasks[i].completed) {
+                count++;
+            }
+        }
+
+        Task[] memory unconfirmedTasks = new Task[](count);
+        uint index = 0;
+        for (uint i = 0; i < tasks.length; i++) {
+            if (!tasks[i].completed) {
+                unconfirmedTasks[index] = tasks[i];
+                index++;
+            }
+        }
+
+        return unconfirmedTasks;
+    }
+
+    function createTask(string memory _sub) public {
+        if (subToTaskId[_sub] != 0) {
+            revert("Task already exists.");
+        }
+
+        uint taskId = tasks.length;
+        Task storage newTask = tasks.push();
+        newTask.id = taskId;
+        newTask.sub = _sub;
+        newTask.completed = false;
+        subToTaskId[_sub] = taskId + 1;
+        emit TaskCreated(taskId, _sub);
+    }
+
+    function linkWallet(string memory github) public {
+        require(
+            keccak256(abi.encodePacked(walletToGithub[msg.sender])) ==
+                keccak256(abi.encodePacked("")),
+            "Wallet already linked to a Github account."
+        );
+
+        walletToGithub[msg.sender] = github;
+        githubToWallet[github] = msg.sender;
+
+        emit WalletLinked(msg.sender, github);
+    }
+
+    function confirmTask(uint _taskId, string memory github) public {
+        require(_taskId < tasks.length, "Task does not exist.");
+        Task storage task = tasks[_taskId];
+        require(
+            keccak256(abi.encodePacked(walletToGithub[msg.sender])) ==
+                keccak256(abi.encodePacked(github)),
+            "Github account not linked to wallet."
+        );
+        require(!task.completed, "Task already confirmed.");
+
+        task.completed = true;
+        userCompletedTasks[msg.sender].push(_taskId);
+
+        // TODO: should decide points based on task difficulty
+        userPoints[msg.sender] += 10;
+    }
+
+    function getUserPoints(address _user) public view returns (uint) {
+        return userPoints[_user];
+    }
+
+    function getUserCompletedTasks(
+        address _user
+    ) public view returns (uint[] memory) {
+        return userCompletedTasks[_user];
+    }
+
+    function getGithubByWallet(
+        address _wallet
+    ) public view returns (string memory) {
+        return walletToGithub[_wallet];
+    }
+
+    function getWalletByGithub(
+        string memory github
+    ) public view returns (address) {
+        return githubToWallet[github];
     }
 }

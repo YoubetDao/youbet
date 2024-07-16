@@ -29,3 +29,9 @@ struct GoalInfo {
     address[] participants;
     GoalType goalType;
 }
+
+struct Task {
+    uint id;
+    string sub;
+    bool completed;
+}
