@@ -31,7 +31,15 @@ struct GoalInfo {
 }
 
 struct Task {
-    uint id;
-    string sub;
+    string id; // g_issue#githubid -> issue
+    string name;
     bool completed;
+    string projectId;
+    address taskCompleter;
+}
+
+struct Project {
+    string id; // g_repo#githubid -> repo
+    mapping(address => uint) userPoints;
+    address[] participants; // List of participants who have earned points
 }
