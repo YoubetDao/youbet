@@ -9,3 +9,4 @@ libs = ["lib"]
 linea-sepolia = "https://rpc.sepolia.linea.build"
 linea-mainnet = "https://rpc.linea.build"
 scroll-sepolia = "https://sepolia-rpc.scroll.io"
+open-campus-sepolia = "https://open-campus-codex-sepolia.drpc.org"

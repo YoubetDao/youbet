@@ -8,12 +8,20 @@ import "./GoalType.sol";
 contract Bet {
     Goal[] private goals;
     Task[] private tasks;
+    mapping(string => uint) private taskIndices;
     mapping(address => uint[]) private userGoals;
     mapping(address => string) private walletToGithub;
     mapping(string => address) private githubToWallet;
     mapping(address => uint) private userPoints;
     mapping(address => uint[]) private userCompletedTasks;
     mapping(string => uint) private subToTaskId;
+
+    // reward related
+    mapping(string => Project) private projects;
+    string[] private projectIds;
+    mapping(address => uint) private totalRewards; // Tracks total rewards accumulated by each user
+    mapping(address => uint) private claimedRewards; // Tracks rewards already claimed by each user
+
     address public contractOwner;
 
     event GoalCreated(
@@ -25,12 +33,15 @@ contract Bet {
         GoalType goalType,
         address creator
     );
-    event TaskCreated(uint id, string sub);
+    event TaskCreated(string id, string sub);
     event GoalUnlocked(uint id, address user, uint stakeAmount);
-    event TaskConfirmed(uint id, address user, uint taskIndex);
+    event GoalTaskConfirmed(uint id, address user, uint taskIndex);
+    event TaskConfirmed(string id, address user, string taskName);
     event StakeClaimed(uint id, address user, uint stakeAmount);
     event GoalSettled(uint id);
     event WalletLinked(address wallet, string githubId);
+    event ProjectCreated(string projectId, string name);
+    event RewardClaimed(address user, uint reward);
 
     constructor() {
         contractOwner = msg.sender;
@@ -138,7 +149,7 @@ contract Bet {
 
         goal.completedTaskCount[_user] += 1;
 
-        emit TaskConfirmed(_goalId, _user, goal.completedTaskCount[_user]);
+        emit GoalTaskConfirmed(_goalId, _user, goal.completedTaskCount[_user]);
     }
 
     function claimStake(uint _goalId) public {
@@ -250,6 +261,7 @@ contract Bet {
             );
     }
 
+    // TODO: 分页
     function getAllTasks() public view returns (Task[] memory) {
         return tasks;
     }
@@ -274,18 +286,55 @@ contract Bet {
         return unconfirmedTasks;
     }
 
-    function createTask(string memory _sub) public {
-        if (subToTaskId[_sub] != 0) {
+    function createProject(
+        string memory _projectId,
+        string memory _name
+    ) public onlyOwner {
+        require(bytes(_projectId).length > 0, "Project ID cannot be empty.");
+        require(
+            bytes(projects[_projectId].id).length == 0,
+            "Project already exists."
+        );
+
+        Project storage newProject = projects[_projectId];
+        newProject.id = _projectId;
+        projectIds.push(_projectId);
+
+        emit ProjectCreated(_projectId, _name);
+    }
+
+    function createTask(
+        string memory _id,
+        string memory _name,
+        string memory projectId
+    ) public {
+        require(bytes(_id).length > 0, "Task ID cannot be empty.");
+
+        // Check if the project exists, if not, create it
+        if (bytes(projects[projectId].id).length == 0) {
+            createProject(projectId, projectId);
+        }
+
+        // Ensure the task doesn't already exist
+        if (taskIndices[_id] != 0) {
             revert("Task already exists.");
         }
 
-        uint taskId = tasks.length;
-        Task storage newTask = tasks.push();
-        newTask.id = taskId;
-        newTask.sub = _sub;
-        newTask.completed = false;
-        subToTaskId[_sub] = taskId + 1;
-        emit TaskCreated(taskId, _sub);
+        // Add the task to the array and map its ID to the index
+        tasks.push(
+            Task({
+                id: _id,
+                name: _name,
+                completed: false,
+                projectId: projectId,
+                taskCompleter: address(0)
+            })
+        );
+
+        // Store the index (length - 1) + 1 to avoid using index 0 as a valid task index
+        taskIndices[_id] = tasks.length;
+
+        emit TaskCreated(_id, _name);
     }
 
     function linkWallet(address wallet, string memory github) public onlyOwner {
@@ -301,21 +350,102 @@ contract Bet {
         emit WalletLinked(wallet, github);
     }
 
-    function confirmTask(uint _taskId, string memory github) public {
-        require(_taskId < tasks.length, "Task does not exist.");
-        Task storage task = tasks[_taskId];
+    function confirmTask(string memory _taskId, string memory github) public {
+        uint taskIndex = taskIndices[_taskId];
+        require(taskIndex != 0, "Task does not exist."); // taskIndex is 1-based, 0 means non-existent
+
+        Task storage task = tasks[taskIndex - 1]; // Adjust index to match array (1-based to 0-based)
+        address userAddress = githubToWallet[github];
         require(
-            keccak256(abi.encodePacked(walletToGithub[msg.sender])) ==
-                keccak256(abi.encodePacked(github)),
-            "Github account not linked to wallet."
+            userAddress != address(0),
+            "GitHub account not linked to a wallet."
         );
         require(!task.completed, "Task already confirmed.");
 
         task.completed = true;
-        userCompletedTasks[msg.sender].push(_taskId);
+        task.taskCompleter = userAddress;
+        userCompletedTasks[userAddress].push(taskIndex);
 
-        // TODO: should decide points based on task difficulty
-        userPoints[msg.sender] += 10;
+        // Update user points for both global and project-specific records
+        userPoints[userAddress] += 10;
+        Project storage project = projects[task.projectId];
+
+        // Check if the user is already a participant in the project
+        bool isParticipant = false;
+        if (project.userPoints[userAddress] > 0) {
+            isParticipant = true;
+        }
+        // Add to participants if not already included
+        if (!isParticipant) {
+            project.participants.push(userAddress);
+        }
+
+        project.userPoints[userAddress] += 10;
+
+        emit TaskConfirmed(_taskId, userAddress, task.name);
+    }
+
+    function donateToProject(string memory projectId) public payable {
+        Project storage project = projects[projectId];
+        require(bytes(project.id).length != 0, "Project does not exist.");
+
+        uint totalProjectPoints = 0;
+
+        // Calculate total points
+        for (uint i = 0; i < project.participants.length; i++) {
+            address participant = project.participants[i];
+            totalProjectPoints += project.userPoints[participant];
+        }
+
+        require(
+            totalProjectPoints > 0,
+            "No points allocated for this project."
+        );
+
+        // Distribute donation based on userPoints
+        for (uint i = 0; i < project.participants.length; i++) {
+            address participant = project.participants[i];
+            uint userShare = (project.userPoints[participant] * msg.value) /
+                totalProjectPoints;
+            totalRewards[participant] += userShare;
+        }
+    }
+
+    function getAllProjectIds() public view returns (string[] memory) {
+        return projectIds;
+    }
+
+    function getProjectParticipants(
+        string memory projectId
+    ) public view returns (address[] memory) {
+        return projects[projectId].participants;
+    }
+
+    function getProjectUserPoints(
+        string memory projectId,
+        address user
+    ) public view returns (uint) {
+        return projects[projectId].userPoints[user];
+    }
+
+    function claimReward() public {
+        uint reward = totalRewards[msg.sender] - claimedRewards[msg.sender];
+        require(reward > 0, "No rewards to claim.");
+
+        claimedRewards[msg.sender] += reward;
+
+        // Transfer the reward to the user
+        payable(msg.sender).transfer(reward);
+
+        emit RewardClaimed(msg.sender, reward);
+    }
+
+    function getTotalRewards(address user) public view returns (uint) {
+        return totalRewards[user];
+    }
+
+    function getClaimedRewards(address user) public view returns (uint) {
+        return claimedRewards[user];
     }
 
     function getUserPoints(address _user) public view returns (uint) {
