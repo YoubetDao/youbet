@@ -397,17 +397,15 @@ contract Bet {
             totalProjectPoints += project.userPoints[participant];
         }
 
-        require(
-            totalProjectPoints > 0,
-            "No points allocated for this project."
-        );
-
-        // Distribute donation based on userPoints
-        for (uint i = 0; i < project.participants.length; i++) {
-            address participant = project.participants[i];
-            uint userShare = (project.userPoints[participant] * msg.value) /
-                totalProjectPoints;
-            totalRewards[participant] += userShare;
+        // If no contribution at all, just donate to YouBet Wallet.
+        if (totalProjectPoints > 0) {
+            // Distribute donation based on userPoints
+            for (uint i = 0; i < project.participants.length; i++) {
+                address participant = project.participants[i];
+                uint userShare = (project.userPoints[participant] * msg.value) /
+                    totalProjectPoints;
+                totalRewards[participant] += userShare;
+            }
         }
     }
 
