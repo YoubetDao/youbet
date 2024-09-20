@@ -15,7 +15,6 @@ contract BetScript is Script {
         address ownerAddress = vm.addr(deployerPrivateKey);
 
         console.log("Deploy owner address: %s", ownerAddress);
-        // console.logAddress(ownerAddress);
 
         vm.startBroadcast(deployerPrivateKey);
 
