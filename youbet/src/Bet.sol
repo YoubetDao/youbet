@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+
 import "./Goal.sol";
 import "./GoalType.sol";
 
-contract Bet {
+contract Bet is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     Goal[] private goals;
     Task[] private tasks;
     mapping(string => uint) private taskIndices;
@@ -21,8 +24,6 @@ contract Bet {
     string[] private projectIds;
     mapping(address => uint) private totalRewards; // Tracks total rewards accumulated by each user
     mapping(address => uint) private claimedRewards; // Tracks rewards already claimed by each user
-
-    address public contractOwner;
 
     event GoalCreated(
         uint id,
@@ -43,14 +44,21 @@ contract Bet {
     event ProjectCreated(string projectId, string name);
     event RewardClaimed(address user, uint reward);
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
-        contractOwner = msg.sender;
+        _disableInitializers();
     }
 
-    modifier onlyOwner() {
-        require(msg.sender == contractOwner, "Not the contract owner");
-        _;
+    function initialize(address initialOwner) initializer public {
+        __Ownable_init(initialOwner);
+        __UUPSUpgradeable_init();
     }
+
+    function _authorizeUpgrade(address newImplementation)
+        internal
+        onlyOwner
+        override
+    {}    
 
     function createGoalSolo(
         string memory _name,
@@ -181,7 +189,7 @@ contract Bet {
     function settleGoal(uint _goalId) public {
         // only goal creator or contract owner can settle the goal
         require(
-            msg.sender == goals[_goalId].creator || msg.sender == contractOwner,
+            msg.sender == goals[_goalId].creator || msg.sender == owner(),
             "Only goal creator or contract owner can settle the goal."
         );
 
