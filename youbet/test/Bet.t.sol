@@ -86,17 +86,17 @@ contract BetTest is Test {
         bet.linkWallet(user2, "TestGithub2");
 
         bet.createTask("g_issue#1", "Task 1", "Project 1");
-        bet.confirmTask("g_issue#1", "TestGithub1");
+        bet.confirmTask("g_issue#1", "TestGithub1", 10);
         bet.createTask("g_issue#2", "Task 2", "Project 1");
-        bet.confirmTask("g_issue#2", "TestGithub1");
+        bet.confirmTask("g_issue#2", "TestGithub1", 10);
         bet.createTask("g_issue#3", "Task 3", "Project 1");
-        bet.confirmTask("g_issue#3", "TestGithub2");
+        bet.confirmTask("g_issue#3", "TestGithub2", 10);
 
         bet.createProject("Project 2", "Second Project");
         bet.createTask("g_issue#2_1", "Task 1", "Project 2");
-        bet.confirmTask("g_issue#2_1", "TestGithub1");
+        bet.confirmTask("g_issue#2_1", "TestGithub1", 10);
         bet.createTask("g_issue#2_2", "Task 2", "Project 2");
-        bet.confirmTask("g_issue#2_2", "TestGithub2");
+        bet.confirmTask("g_issue#2_2", "TestGithub2", 10);
 
         Task[] memory tasks = bet.getAllTasks();
         assertEq(tasks[0].completed, true, "Task should be completed");
@@ -134,7 +134,7 @@ contract BetTest is Test {
         bet.linkWallet(address(this), "TestGithub");
         bet.createTask("Test Task 1", "Task 1", "Project 1");
 
-        bet.confirmTask("Test Task 1", "TestGithub");
+        bet.confirmTask("Test Task 1", "TestGithub", 10);
         uint points = bet.getUserPoints(address(this));
 
         assertEq(points, 10, "User should have 10 points");
@@ -145,7 +145,7 @@ contract BetTest is Test {
         bet.createTask("Test Task 1", "Task 1", "Project 1");
         bet.createTask("Test Task 2", "Task 2", "Project 1");
 
-        bet.confirmTask("Test Task 1", "TestGithub");
+        bet.confirmTask("Test Task 1", "TestGithub", 10);
         uint[] memory completedTasks = bet.getUserCompletedTasks(address(this));
 
         assertEq(completedTasks.length, 1, "User should have 1 completed task");
@@ -161,11 +161,11 @@ contract BetTest is Test {
         bet.linkWallet(user2, "TestGithub2");
 
         bet.createTask("g_issue#1", "Task 1", "Project 1");
-        bet.confirmTask("g_issue#1", "TestGithub1");
+        bet.confirmTask("g_issue#1", "TestGithub1", 10);
         bet.createTask("g_issue#2", "Task 2", "Project 1");
-        bet.confirmTask("g_issue#2", "TestGithub1");
+        bet.confirmTask("g_issue#2", "TestGithub1", 10);
         bet.createTask("g_issue#3", "Task 3", "Project 1");
-        bet.confirmTask("g_issue#3", "TestGithub2");
+        bet.confirmTask("g_issue#3", "TestGithub2", 10);
 
         vm.deal(user1, 10 ether);
         vm.deal(user2, 0 ether);

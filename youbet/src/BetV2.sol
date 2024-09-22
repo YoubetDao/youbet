@@ -24,6 +24,7 @@ contract Bet is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     string[] private projectIds;
     mapping(address => uint) private totalRewards; // Tracks total rewards accumulated by each user
     mapping(address => uint) private claimedRewards; // Tracks rewards already claimed by each user
+    uint testVersion;
 
     event GoalCreated(
         uint id,

@@ -27,10 +27,10 @@ contract BetScript is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         Options memory opts;
-        // opts.referenceContract = "Bet.sol";
+        opts.referenceContract = "Bet.sol:Bet";
 
         // replace name of new contract.
-        Upgrades.upgradeProxy(proxy_address, "BetV2.sol:BetV2", "", opts);
+        Upgrades.upgradeProxy(proxy_address, "BetV2.sol:Bet", "", opts);
 
         vm.stopBroadcast();
     }
