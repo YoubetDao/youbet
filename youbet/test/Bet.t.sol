@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {Test} from "forge-std/Test.sol";
 import "forge-std/console.sol";
 import {Bet} from "../src/Bet.sol";
@@ -11,7 +12,14 @@ contract BetTest is Test {
     Bet public bet;
 
     function setUp() public {
-        bet = new Bet();
+        Bet _bet = new Bet();
+
+        ERC1967Proxy proxy = new ERC1967Proxy(
+            address(_bet),
+            abi.encodeWithSignature("initialize(address)", address(this))
+        );
+        
+        bet = Bet(address(proxy));
     }
 
     function testCreateGoal() public {
@@ -189,5 +197,19 @@ contract BetTest is Test {
         // TODO: wierd. It works if I deployed on chain. But not working in tests.
         // bet.claimReward();
         // console.log(user1.balance);
+    }
+
+    function testGetTask() public {
+        string memory id = "1";
+        string memory name = "Task 1";
+        string memory project = "Project 1";
+
+        bet.createTask(id, name, project);
+        
+        Task memory task = bet.getTask(id);
+
+        assertEq(task.id, id);
+        assertEq(task.name, name);
+        assertEq(task.projectId, project);
     }
 }
