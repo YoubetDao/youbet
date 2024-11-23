@@ -44,6 +44,11 @@ contract Bet is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     event ProjectCreated(string projectId, string name);
     event RewardClaimed(address user, uint reward);
 
+    modifier taskExist(string memory _taskId) {
+        require(taskIndices[_taskId] != 0, "Task does not exist.");
+        _;
+    }
+
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
@@ -360,9 +365,8 @@ contract Bet is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         string memory _taskId,
         string memory github,
         uint taskPoints
-    ) public {
+    ) public taskExist(_taskId) {
         uint taskIndex = taskIndices[_taskId];
-        require(taskIndex != 0, "Task does not exist."); // taskIndex is 1-based, 0 means non-existent
 
         Task storage task = tasks[taskIndex - 1]; // Adjust index to match array (1-based to 0-based)
         address userAddress = githubToWallet[github];
@@ -476,5 +480,10 @@ contract Bet is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         string memory github
     ) public view returns (address) {
         return githubToWallet[github];
+    }
+
+    function getTask(string memory _taskId) taskExist(_taskId) public view returns(Task memory) {
+        uint taskIndex = taskIndices[_taskId];
+        return tasks[taskIndex - 1];
     }
 }
