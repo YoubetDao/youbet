@@ -18,7 +18,7 @@ contract BetTest is Test {
             address(_bet),
             abi.encodeWithSignature("initialize(address)", address(this))
         );
-        
+
         bet = Bet(address(proxy));
     }
 
@@ -132,10 +132,18 @@ contract BetTest is Test {
         assertEq(participants.length, 2, "Project should have 1 participant");
 
         uint[] memory completedTasks1 = bet.getUserCompletedTasks(user1);
-        assertEq(completedTasks1.length, 3, "User1 should have 3 completed task");
+        assertEq(
+            completedTasks1.length,
+            3,
+            "User1 should have 3 completed task"
+        );
 
         uint[] memory completedTasks2 = bet.getUserCompletedTasks(user2);
-        assertEq(completedTasks2.length, 2, "User2 should have 2 completed task");
+        assertEq(
+            completedTasks2.length,
+            2,
+            "User2 should have 2 completed task"
+        );
     }
 
     function testGetUserPoints() public {
@@ -205,11 +213,27 @@ contract BetTest is Test {
         string memory project = "Project 1";
 
         bet.createTask(id, name, project);
-        
+
         Task memory task = bet.getTask(id);
 
         assertEq(task.id, id);
         assertEq(task.name, name);
         assertEq(task.projectId, project);
+    }
+
+    function testBatchTransfer() public {
+        address payable[] memory recipients = new address payable[](10);
+        uint256[] memory amounts = new uint256[](10);
+
+        for (uint256 i = 0; i < 10; i++) {
+            recipients[i] = (payable(vm.addr(i + 1)));
+            amounts[i] = 10000;
+        }
+
+        bet.batchTransferETH{value: 100000}(recipients, amounts);
+
+        for (uint256 i = 0; i < 10; i++) {
+            assertEq(recipients[i].balance, 10000);
+        }
     }
 }

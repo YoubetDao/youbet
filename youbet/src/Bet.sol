@@ -365,7 +365,7 @@ contract Bet is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         string memory _taskId,
         string memory github,
         uint taskPoints
-    ) public taskExist(_taskId) {
+    ) public taskExist(_taskId) onlyOwner {
         uint taskIndex = taskIndices[_taskId];
 
         Task storage task = tasks[taskIndex - 1]; // Adjust index to match array (1-based to 0-based)
@@ -482,8 +482,29 @@ contract Bet is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         return githubToWallet[github];
     }
 
-    function getTask(string memory _taskId) taskExist(_taskId) public view returns(Task memory) {
+    function getTask(
+        string memory _taskId
+    ) public view taskExist(_taskId) returns (Task memory) {
         uint taskIndex = taskIndices[_taskId];
         return tasks[taskIndex - 1];
+    }
+
+    /**
+     * @dev Batch transfer of Ether
+     * @param recipients Array of recipient addresses
+     * @param amounts Array of amounts to transfer in wei
+     */
+    function batchTransferETH(
+        address payable[] calldata recipients,
+        uint256[] calldata amounts
+    ) external payable {
+        require(
+            recipients.length == amounts.length,
+            "Arrays must have the same length"
+        );
+
+        for (uint256 i = 0; i < recipients.length; i++) {
+            recipients[i].transfer(amounts[i]);
+        }
     }
 }
