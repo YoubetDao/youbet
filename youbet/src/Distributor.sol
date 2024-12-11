@@ -4,6 +4,7 @@ pragma solidity ^0.8.19;
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 
 contract Distributor is Initializable, UUPSUpgradeable, OwnableUpgradeable {
     // State variables
@@ -15,6 +16,7 @@ contract Distributor is Initializable, UUPSUpgradeable, OwnableUpgradeable {
     struct RedPacket {
         address creator;
         uint256 totalAmount;
+        uint256 remainingAmount;
         RedPacketStatus status;
         mapping(string => uint256) amounts;
         mapping(string => bool) claimed;
@@ -22,6 +24,7 @@ contract Distributor is Initializable, UUPSUpgradeable, OwnableUpgradeable {
 
     mapping(string => RedPacket) public redPackets;
     address public signer;
+    ERC20Upgradeable public token;
 
     // Events
     event RedPacketRefunded(
@@ -35,10 +38,15 @@ contract Distributor is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         _disableInitializers();
     }
 
-    function initialize(address _signer, address _owner) public initializer {
+    function initialize(
+        address _signer,
+        address _owner,
+        address _token
+    ) public initializer {
         __Ownable_init(_owner);
         __UUPSUpgradeable_init();
         signer = _signer;
+        token = ERC20Upgradeable(_token);
     }
 
     // Required by UUPSUpgradeable
@@ -57,7 +65,7 @@ contract Distributor is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         string calldata uuid,
         string[] calldata githubIds,
         uint256[] calldata amounts
-    ) external payable {
+    ) external {
         require(githubIds.length == amounts.length, "Invalid input lengths");
         require(
             redPackets[uuid].creator == address(0),
@@ -68,12 +76,18 @@ contract Distributor is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         for (uint i = 0; i < amounts.length; i++) {
             total += amounts[i];
         }
-        require(msg.value == total, "Invalid amount sent");
+
+        // transfer token to contract
+        require(
+            token.transferFrom(msg.sender, address(this), total),
+            "Token transfer failed"
+        );
 
         RedPacket storage packet = redPackets[uuid];
         packet.creator = msg.sender;
         packet.totalAmount = total;
-        packet.status = RedPacketStatus.Active; // Set initial status
+        packet.remainingAmount = total;
+        packet.status = RedPacketStatus.Active;
 
         for (uint i = 0; i < githubIds.length; i++) {
             packet.amounts[githubIds[i]] = amounts[i];
@@ -105,10 +119,13 @@ contract Distributor is Initializable, UUPSUpgradeable, OwnableUpgradeable {
             "Invalid signature"
         );
 
-        // Mark as claimed and transfer to msg.sender
+        // Mark as claimed and transfer tokens to msg.sender
         packet.claimed[githubId] = true;
-        (bool success, ) = msg.sender.call{value: packet.amounts[githubId]}("");
-        require(success, "Transfer failed");
+        packet.remainingAmount -= packet.amounts[githubId];
+        require(
+            token.transfer(msg.sender, packet.amounts[githubId]),
+            "Token transfer failed"
+        );
     }
 
     // Signature recovery function
@@ -141,8 +158,10 @@ contract Distributor is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         packet.status = RedPacketStatus.Refunded;
 
         // Transfer total amount back to creator
-        (bool success, ) = msg.sender.call{value: packet.totalAmount}("");
-        require(success, "Transfer failed");
+        require(
+            token.transfer(msg.sender, packet.remainingAmount),
+            "Token transfer failed"
+        );
 
         emit RedPacketRefunded(uuid, msg.sender, packet.totalAmount);
     }

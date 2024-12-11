@@ -10,14 +10,14 @@ contract DistributorScript is Script {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address ownerAddress = vm.addr(deployerPrivateKey);
         address signerAddress = vm.envAddress("SIGNER_ADDRESS");
-
+        address tokenAddress = vm.envAddress("TOKEN_ADDRESS");
         vm.startBroadcast(deployerPrivateKey);
 
         Upgrades.deployUUPSProxy(
             "Distributor.sol:Distributor",
             abi.encodeCall(
                 Distributor.initialize,
-                (signerAddress, ownerAddress)
+                (signerAddress, ownerAddress, tokenAddress)
             )
         );
 
