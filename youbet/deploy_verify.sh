@@ -21,6 +21,7 @@ fi
 
 NETWORK=$1
 CONTRACT=$2
+ENV_FILE=${3:-.env}
 
 # Validate network
 if [ -z "${RPC_URLS[$NETWORK]}" ]; then
@@ -46,7 +47,7 @@ echo "Script: $SCRIPT"
 
 forge clean
 
-source .env
+source $ENV_FILE
 
 forge script \
     $SCRIPT \
