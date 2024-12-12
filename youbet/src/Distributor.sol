@@ -4,7 +4,8 @@ pragma solidity ^0.8.19;
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 contract Distributor is Initializable, UUPSUpgradeable, OwnableUpgradeable {
     // State variables
@@ -24,12 +25,25 @@ contract Distributor is Initializable, UUPSUpgradeable, OwnableUpgradeable {
 
     mapping(string => RedPacket) public redPackets;
     address public signer;
-    ERC20Upgradeable public token;
+    ERC20 public token;
 
     // Events
     event RedPacketRefunded(
         string indexed uuid,
         address indexed creator,
+        uint256 amount
+    );
+
+    event RedPacketCreated(
+        string indexed uuid,
+        address indexed creator,
+        uint256 totalAmount
+    );
+
+    event RedPacketClaimed(
+        string indexed uuid,
+        string indexed githubId,
+        address indexed claimer,
         uint256 amount
     );
 
@@ -46,7 +60,7 @@ contract Distributor is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         __Ownable_init(_owner);
         __UUPSUpgradeable_init();
         signer = _signer;
-        token = ERC20Upgradeable(_token);
+        token = ERC20(_token);
     }
 
     // Required by UUPSUpgradeable
@@ -92,6 +106,8 @@ contract Distributor is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         for (uint i = 0; i < githubIds.length; i++) {
             packet.amounts[githubIds[i]] = amounts[i];
         }
+
+        emit RedPacketCreated(uuid, msg.sender, total);
     }
 
     // Claim a red packet
@@ -126,6 +142,13 @@ contract Distributor is Initializable, UUPSUpgradeable, OwnableUpgradeable {
             token.transfer(msg.sender, packet.amounts[githubId]),
             "Token transfer failed"
         );
+
+        emit RedPacketClaimed(
+            uuid,
+            githubId,
+            msg.sender,
+            packet.amounts[githubId]
+        );
     }
 
     // Signature recovery function
@@ -133,18 +156,7 @@ contract Distributor is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         bytes32 ethSignedMessageHash,
         bytes memory signature
     ) internal pure returns (address) {
-        require(signature.length == 65, "Invalid signature length");
-        bytes32 r;
-        bytes32 s;
-        uint8 v;
-
-        assembly {
-            r := mload(add(signature, 32))
-            s := mload(add(signature, 64))
-            v := byte(0, mload(add(signature, 96)))
-        }
-
-        return ecrecover(ethSignedMessageHash, v, r, s);
+        return ECDSA.recover(ethSignedMessageHash, signature);
     }
 
     // Allow creator to refund unclaimed amounts
@@ -163,6 +175,6 @@ contract Distributor is Initializable, UUPSUpgradeable, OwnableUpgradeable {
             "Token transfer failed"
         );
 
-        emit RedPacketRefunded(uuid, msg.sender, packet.totalAmount);
+        emit RedPacketRefunded(uuid, msg.sender, packet.remainingAmount);
     }
 }
