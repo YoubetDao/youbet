@@ -81,3 +81,16 @@ main().catch((error) => {
   console.error(error);
   process.exit(1);
 });
+
+// async function sign() {
+//   const signerWallet = new ethers.Wallet(privateKey, provider);
+//   const message = ethers.solidityPackedKeccak256(
+//     ["string", "string"],
+//     ["674c79142909c827f31f89fd", "wfnuser"]
+//   );
+//   const messageHashBytes = ethers.getBytes(message);
+//   const signature = await signerWallet.signMessage(messageHashBytes);
+//   console.log(signature);
+// }
+
+// sign();
