@@ -1,3 +1,6 @@
 .env
+.env.production
 
 node_modules
+
+youbet/broadcast/*
