@@ -29,20 +29,22 @@ contract Distributor is Initializable, UUPSUpgradeable, OwnableUpgradeable {
 
     // Events
     event RedPacketRefunded(
-        string indexed uuid,
+        string uuid,
         address indexed creator,
         uint256 amount
     );
 
     event RedPacketCreated(
-        string indexed uuid,
+        string uuid,
         address indexed creator,
-        uint256 totalAmount
+        uint256 totalAmount,
+        string[] githubIds,
+        uint256[] amounts
     );
 
     event RedPacketClaimed(
-        string indexed uuid,
-        string indexed githubId,
+        string uuid,
+        string githubId,
         address indexed claimer,
         uint256 amount
     );
@@ -107,7 +109,7 @@ contract Distributor is Initializable, UUPSUpgradeable, OwnableUpgradeable {
             packet.amounts[githubIds[i]] = amounts[i];
         }
 
-        emit RedPacketCreated(uuid, msg.sender, total);
+        emit RedPacketCreated(uuid, msg.sender, total, githubIds, amounts);
     }
 
     // Claim a red packet

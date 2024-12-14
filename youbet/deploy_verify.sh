@@ -3,18 +3,21 @@
 # Network configurations
 RPC_URLS["edu-test"]="https://rpc.open-campus-codex.gelato.digital"
 RPC_URLS["op-test"]="https://sepolia.optimism.io"
+RPC_URLS["op"]="https://mainnet.optimism.io"
 
 # Verifier configurations
 VERIFIER_URLS["edu-test"]="https://opencampus-codex.blockscout.com/api/"
-VERIFIER_URLS["op-test"]="https://optimism-sepolia.blockscout.com//api/"
+VERIFIER_URLS["op-test"]="https://optimism-sepolia.blockscout.com/api/"
+VERIFIER_URLS["op"]="https://optimism.blockscout.com/api/"
 
 # Script configurations
 DEPLOY_SCRIPTS["bet"]="script/BetDeploy.s.sol:BetScript"
 DEPLOY_SCRIPTS["distributor"]="script/DistributorDeploy.s.sol:DistributorScript"
 
-if [ $# -ne 2 ]; then
-    echo "Usage: ./deploy_verify.sh <network> <contract>"
-    echo "Networks: edu-test, op-test"
+# env is optional, default is .env
+if [ $# -ne 2 ] && [ $# -ne 3 ]; then
+    echo "Usage: ./deploy_verify.sh <network> <contract> <env>"
+    echo "Networks: edu-test, op-test, op"
     echo "Contracts: bet, distributor"
     exit 1
 fi
@@ -47,7 +50,9 @@ echo "Script: $SCRIPT"
 
 forge clean
 
+set -o allexport
 source $ENV_FILE
+set +o allexport
 
 forge script \
     $SCRIPT \

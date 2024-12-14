@@ -7,6 +7,9 @@ const abi = [
   "function claimRedPacket(string uuid, string githubId, bytes signature) external",
   "function refundRedPacket(string uuid) external",
   "function token() external view returns (address)",
+  "event RedPacketCreated(string indexed uuid, address indexed creator, uint256 totalAmount, string[] githubIds, uint256[] amounts)",
+  "event RedPacketClaimed(string indexed uuid, string githubId, address indexed claimer, uint256 amount)",
+  "event RedPacketRefunded(string indexed uuid, uint256 amount)",
 ];
 
 // ERC20 token ABI
@@ -17,7 +20,7 @@ const tokenAbi = [
 ];
 
 // Contract addresses
-const distributorAddress = "0x1a48F5d414DDC79a79f519A665e03692B2a2c450";
+const distributorAddress = "0xBE639b42A3818875D59992d80F18280387cFB412";
 const provider = new JsonRpcProvider("https://sepolia.optimism.io");
 
 // Create a signer
@@ -50,9 +53,9 @@ async function main() {
   }
 
   // 3. Create red packet
-  const uuid = "test-" + Date.now();
+  const uuid = Date.now().toString(36);
   const githubIds = ["user1", "user2"];
-  const amounts = [ethers.parseUnits("90", 18), ethers.parseUnits("10", 18)];
+  const amounts = [ethers.parseUnits("20", 18), ethers.parseUnits("10", 18)];
 
   const createTx = await distributor.createRedPacket(uuid, githubIds, amounts);
   await createTx.wait();
@@ -75,6 +78,27 @@ async function main() {
   );
   await claimTx.wait();
   console.log("Red packet claimed");
+
+  // 6. read create event
+  // const currentBlock = await provider.getBlockNumber();
+  // console.log("Current block:", currentBlock);
+
+  // const createdEvents = await distributor.queryFilter(
+  //   "RedPacketCreated",
+  //   currentBlock - 1000,
+  //   currentBlock
+  // );
+
+  // console.log("Created events:", createdEvents.length);
+  // for (const event of createdEvents) {
+  //   console.log(event);
+  //   const decodedData = distributor.interface.parseLog({
+  //     topics: event.topics,
+  //     data: event.data,
+  //   });
+  //   console.log("UUID:", decodedData.args[0]);
+  //   console.log("Amount:", decodedData.args[2]);
+  // }
 }
 
 main().catch((error) => {
