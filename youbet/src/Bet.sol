@@ -5,14 +5,10 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
-import "./Goal.sol";
-import "./GoalType.sol";
-
 contract Bet is Initializable, OwnableUpgradeable, UUPSUpgradeable {
-    Goal[] private goals;
     Task[] private tasks;
     mapping(string => uint) private taskIndices;
-    mapping(address => uint[]) private userGoals;
+
     mapping(address => string) private walletToGithub;
     mapping(string => address) private githubToWallet;
     mapping(address => uint) private userPoints;
@@ -25,21 +21,23 @@ contract Bet is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     mapping(address => uint) private totalRewards; // Tracks total rewards accumulated by each user
     mapping(address => uint) private claimedRewards; // Tracks rewards already claimed by each user
 
-    event GoalCreated(
-        uint id,
-        string name,
-        string description,
-        uint requiredStake,
-        uint taskCount,
-        GoalType goalType,
-        address creator
-    );
+    struct Task {
+        string id; // g_issue#githubid -> issue
+        string name;
+        bool completed;
+        string projectId;
+        address taskCompleter;
+    }
+
+    struct Project {
+        string id; // g_repo#githubid -> repo
+        mapping(address => uint) userPoints;
+        address[] participants; // List of participants who have earned points
+    }
+
     event TaskCreated(string id, string sub);
-    event GoalUnlocked(uint id, address user, uint stakeAmount);
-    event GoalTaskConfirmed(uint id, address user, uint taskIndex);
     event TaskConfirmed(string id, address user, string taskName);
     event StakeClaimed(uint id, address user, uint stakeAmount);
-    event GoalSettled(uint id);
     event WalletLinked(address wallet, string githubId);
     event ProjectCreated(string projectId, string name);
     event RewardClaimed(address user, uint reward);
@@ -63,214 +61,7 @@ contract Bet is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         address newImplementation
     ) internal override onlyOwner {}
 
-    function createGoalSolo(
-        string memory _name,
-        string memory _description,
-        uint _requiredStake,
-        uint _taskCount
-    ) public {
-        _createGoal(
-            _name,
-            _description,
-            _requiredStake,
-            _taskCount,
-            GoalType.Solo
-        );
-    }
-
-    function createGoal(
-        string memory _name,
-        string memory _description,
-        uint _requiredStake,
-        uint _taskCount
-    ) public {
-        _createGoal(
-            _name,
-            _description,
-            _requiredStake,
-            _taskCount,
-            GoalType.Gambling
-        );
-    }
-
-    function _createGoal(
-        string memory _name,
-        string memory _description,
-        uint _requiredStake,
-        uint _taskCount,
-        GoalType _goalType
-    ) public {
-        uint goalId = goals.length;
-        Goal storage newGoal = goals.push();
-        newGoal.id = goalId;
-        newGoal.name = _name;
-        newGoal.description = _description;
-        newGoal.requiredStake = _requiredStake;
-        newGoal.creator = msg.sender;
-        newGoal.taskCount = _taskCount;
-        newGoal.goalType = _goalType;
-        newGoal.completed = false;
-
-        emit GoalCreated(
-            goalId,
-            _name,
-            _description,
-            _requiredStake,
-            _taskCount,
-            _goalType,
-            msg.sender
-        );
-    }
-
     event DebugLog(uint msgValue, uint requiredStake);
-
-    function stakeAndUnlockGoal(uint _goalId) public payable {
-        require(_goalId < goals.length, "Goal does not exist.");
-        Goal storage goal = goals[_goalId];
-        emit DebugLog(msg.value, goal.requiredStake);
-
-        require(msg.value == goal.requiredStake, "Incorrect stake amount.");
-        require(
-            !goal.isParticipant[msg.sender],
-            "Already participated in this goal."
-        );
-
-        goal.participants.push(msg.sender);
-        goal.isParticipant[msg.sender] = true;
-        userGoals[msg.sender].push(_goalId);
-
-        emit GoalUnlocked(_goalId, msg.sender, msg.value);
-    }
-
-    function confirmTaskCompletion(uint _goalId, address _user) public {
-        require(_goalId < goals.length, "Goal does not exist.");
-        Goal storage goal = goals[_goalId];
-        require(
-            msg.sender == goal.creator,
-            "Only goal creator can confirm task completion."
-        );
-        require(
-            goal.isParticipant[_user],
-            "User is not a participant of this goal."
-        );
-        require(
-            goal.completedTaskCount[_user] < goal.taskCount,
-            "All tasks already confirmed."
-        );
-
-        goal.completedTaskCount[_user] += 1;
-
-        emit GoalTaskConfirmed(_goalId, _user, goal.completedTaskCount[_user]);
-    }
-
-    function claimStake(uint _goalId) public {
-        require(_goalId < goals.length, "Goal does not exist.");
-        Goal storage goal = goals[_goalId];
-        require(
-            goal.isParticipant[msg.sender],
-            "Not a participant of this goal."
-        );
-        require(!goal.isClaimed[msg.sender], "Stake already claimed.");
-
-        uint reward;
-        if (goal.goalType == GoalType.Solo) {
-            reward =
-                (goal.requiredStake * goal.completedTaskCount[msg.sender]) /
-                goal.taskCount;
-        } else {
-            reward = goal.rewards[msg.sender];
-        }
-
-        require(reward > 0, "No reward to claim.");
-
-        payable(msg.sender).transfer(reward);
-        goal.isClaimed[msg.sender] = true;
-
-        emit StakeClaimed(_goalId, msg.sender, reward);
-    }
-
-    function settleGoal(uint _goalId) public {
-        // only goal creator or contract owner can settle the goal
-        require(
-            msg.sender == goals[_goalId].creator || msg.sender == owner(),
-            "Only goal creator or contract owner can settle the goal."
-        );
-
-        require(_goalId < goals.length, "Goal does not exist.");
-        Goal storage goal = goals[_goalId];
-        require(goal.goalType == GoalType.Gambling, "Not a gambling goal");
-
-        uint totalStake = 0;
-        uint totalCompletedTasks = 0;
-        uint totalParticipants = goal.participants.length;
-        // TODO: make sure the minimum fee can cover our cost.
-        uint fee = (totalParticipants * goal.requiredStake) / 100;
-
-        for (uint i = 0; i < totalParticipants; i++) {
-            address participant = goal.participants[i];
-            totalStake += goal.requiredStake;
-            totalCompletedTasks += goal.completedTaskCount[participant];
-        }
-
-        require(
-            totalStake > fee,
-            "No stakes to distribute after fee deduction"
-        );
-        totalStake -= fee;
-
-        for (uint i = 0; i < totalParticipants; i++) {
-            address participant = goal.participants[i];
-            uint userCompletedTaskCount = goal.completedTaskCount[participant];
-            if (userCompletedTaskCount > 0) {
-                uint reward = (totalStake * userCompletedTaskCount) /
-                    totalCompletedTasks;
-                goal.rewards[participant] = reward;
-            }
-        }
-
-        goal.completed = true;
-        emit GoalSettled(_goalId);
-    }
-
-    function getAllGoals() public view returns (GoalInfo[] memory) {
-        GoalInfo[] memory goalInfos = new GoalInfo[](goals.length);
-        for (uint i = 0; i < goals.length; i++) {
-            Goal storage goal = goals[i];
-            goalInfos[i] = GoalInfo(
-                goal.id,
-                goal.name,
-                goal.description,
-                goal.requiredStake,
-                goal.creator,
-                goal.completed,
-                goal.participants,
-                goal.goalType
-            );
-        }
-        return goalInfos;
-    }
-
-    function getUserGoals(address _user) public view returns (uint[] memory) {
-        return userGoals[_user];
-    }
-
-    function getGoalDetails(
-        uint _goalId
-    ) public view returns (GoalInfo memory) {
-        require(_goalId < goals.length, "Goal does not exist.");
-        Goal storage goal = goals[_goalId];
-        return
-            GoalInfo(
-                goal.id,
-                goal.name,
-                goal.description,
-                goal.requiredStake,
-                goal.creator,
-                goal.completed,
-                goal.participants,
-                goal.goalType
-            );
-    }
 
     // TODO: 分页
     function getAllTasks() public view returns (Task[] memory) {
