@@ -5,9 +5,7 @@ import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {Test} from "forge-std/Test.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "forge-std/console.sol";
-import {Bet, GoalInfo, GoalType} from "../src/Bet.sol";
-import "../src/GoalType.sol";
-import "../src/Goal.sol";
+import {Bet} from "../src/Bet.sol";
 
 contract BetTest is Test {
     Bet private bet;
@@ -32,29 +30,6 @@ contract BetTest is Test {
         assertEq(bet.owner(), owner);
     }
 
-    function testCreateGoalSolo() public {
-        bet.createGoalSolo("Learn Solidity", "Complete the course", 1 ether, 3);
-        GoalInfo memory goal = bet.getGoalDetails(0);
-        assertEq(goal.name, "Learn Solidity");
-    }
-
-    function testCreateGoal() public {
-        bet.createGoal("Gamble", "Win", 2 ether, 5);
-        GoalInfo memory goal = bet.getGoalDetails(0);
-        assertEq(goal.name, "Gamble");
-    }
-
-    function testStakeAndUnlockGoal() public {
-        bet.createGoalSolo("Learn Solidity", "Complete the course", 1 ether, 3);
-
-        vm.deal(user, 2 ether);
-        vm.prank(user);
-        bet.stakeAndUnlockGoal{value: 1 ether}(0);
-
-        uint[] memory userGoals = bet.getUserGoals(user);
-        assertEq(userGoals[0], 0);
-    }
-
     function testConfirmTaskCompletion() public {
         vm.startPrank(owner);
 
@@ -69,78 +44,12 @@ contract BetTest is Test {
         assertEq(completedTasks.length, 1);
     }
 
-    function testClaimStake() public {
-        vm.prank(owner);
-        bet.createGoalSolo("Learn Solidity", "Complete the course", 1 ether, 2);
-
-        vm.deal(user, 2 ether);
-        vm.prank(user);
-        bet.stakeAndUnlockGoal{value: 1 ether}(0);
-
-        assertEq(user.balance, 1 ether);
-
-        vm.prank(owner);
-        bet.confirmTaskCompletion(0, user);
-
-        vm.prank(user);
-        bet.claimStake(0);
-
-        assertEq(user.balance, 1.5 ether);
-    }
-
-    function testSettleGoal() public {
-        vm.prank(owner);
-        bet.createGoal("Gamble", "Win", 2 ether, 5);
-
-        vm.deal(user, 2 ether);
-        vm.prank(user);
-        bet.stakeAndUnlockGoal{value: 2 ether}(0);
-
-        vm.prank(owner);
-        bet.confirmTaskCompletion(0, user);
-
-        vm.prank(owner);
-        bet.settleGoal(0);
-
-        GoalInfo memory goalInfo = bet.getGoalDetails(0);
-        assertTrue(goalInfo.completed);
-    }
-
-    function testGetAllGoals() public {
-        vm.prank(owner);
-        bet.createGoal("Gamble", "Win", 2 ether, 5);
-
-        GoalInfo[] memory goals = bet.getAllGoals();
-        assertEq(goals.length, 1);
-    }
-
-    function testGetUserGoals() public {
-        vm.prank(owner);
-        bet.createGoalSolo("Learn Solidity", "Complete the course", 1 ether, 3);
-
-        vm.deal(user, 1 ether);
-        vm.prank(user);
-
-        bet.stakeAndUnlockGoal{value: 1 ether}(0);
-
-        uint[] memory userGoals = bet.getUserGoals(user);
-        assertEq(userGoals[0], 0);
-    }
-
-    function testGetGoalDetails() public {
-        vm.prank(owner);
-        bet.createGoalSolo("Learn Solidity", "Complete the course", 1 ether, 3);
-
-        GoalInfo memory goalInfo = bet.getGoalDetails(0);
-        assertEq(goalInfo.name, "Learn Solidity");
-    }
-
     function testGetAllTasks() public {
         vm.prank(owner);
         bet.createTask("task1", "Task 1", "proj1");
         bet.createTask("task2", "Task 2", "proj1");
 
-        Task[] memory tasks = bet.getAllTasks();
+        Bet.Task[] memory tasks = bet.getAllTasks();
         assertEq(tasks[0].name, "Task 1");
         assertEq(tasks[1].name, "Task 2");
     }
@@ -156,7 +65,7 @@ contract BetTest is Test {
         vm.prank(user);
         bet.confirmTask("task1", "githubUser", 10);
 
-        Task[] memory unconfirmedTasks = bet.getUnconfirmedTasks();
+        Bet.Task[] memory unconfirmedTasks = bet.getUnconfirmedTasks();
         assertEq(unconfirmedTasks[0].name, "Task 2");
     }
 
@@ -174,7 +83,7 @@ contract BetTest is Test {
         bet.createProject("proj1", "Project 1");
         bet.createTask("task1", "Task 1", "proj1");
 
-        Task[] memory tasks = bet.getAllTasks();
+        Bet.Task[] memory tasks = bet.getAllTasks();
         assertEq(tasks[0].name, "Task 1");
     }
 
@@ -249,6 +158,9 @@ contract BetTest is Test {
     }
 
     function testGetClaimedRewards() public {
+        address user1 = address(this);
+        address user2 = vm.addr(2);
+
         vm.startPrank(owner);
         bet.createProject("proj1", "Project 1");
         bet.createTask("task1", "Task 1", "proj1");
