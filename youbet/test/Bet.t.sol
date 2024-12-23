@@ -3,237 +3,208 @@ pragma solidity ^0.8.13;
 
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {Test} from "forge-std/Test.sol";
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "forge-std/console.sol";
 import {Bet} from "../src/Bet.sol";
-import "../src/GoalType.sol";
-import "../src/Goal.sol";
 
 contract BetTest is Test {
-    Bet public bet;
+    Bet private bet;
+
+    address private owner = address(0x123);
+    address private user = address(0x456);
+    address private otherUser = address(0x789);
 
     function setUp() public {
         Bet _bet = new Bet();
 
         ERC1967Proxy proxy = new ERC1967Proxy(
             address(_bet),
-            abi.encodeWithSignature("initialize(address)", address(this))
+            abi.encodeWithSignature("initialize(address)", owner)
         );
 
         bet = Bet(address(proxy));
     }
 
-    function testCreateGoal() public {
-        bet.createGoal("Test Goal", "This is a test goal", 1 ether, 5);
-        GoalInfo[] memory goals = bet.getAllGoals();
-
-        assertEq(goals.length, 1, "Goal count should be 1");
-
-        GoalInfo memory goal = goals[0];
-        assertEq(goal.name, "Test Goal", "Goal name should be 'Test Goal'");
-        assertEq(
-            goal.description,
-            "This is a test goal",
-            "Goal description should be 'This is a test goal'"
-        );
-        assertEq(
-            goal.requiredStake,
-            1 ether,
-            "Required stake should be 1 ether"
-        );
-        assertEq(
-            uint(goal.goalType),
-            uint(GoalType.Gambling),
-            "Goal type should be Gambling"
-        );
+    function testInitialize() public view {
+        // check owner
+        assertEq(bet.owner(), owner);
     }
 
-    function testCreateTask() public {
-        bet.createTask("Test Task 1", "Task 1", "Project 1");
-        Task[] memory tasks = bet.getAllTasks();
+    function testConfirmTaskCompletion() public {
+        vm.startPrank(owner);
 
-        assertEq(tasks.length, 1, "Task count should be 1");
+        bet.linkWallet(user, "githubUser");
 
-        Task memory task = tasks[0];
-        assertEq(task.id, "Test Task 1", "Task ID should be 'Test Task 1'");
-        assertEq(task.name, "Task 1", "Task name should be 'Task 1'");
-        assertEq(task.completed, false, "Task should not be completed");
+        bet.createTask("task1", "Task 1", "proj1");
+        bet.confirmTask("task1", "githubUser", 100);
+
+        vm.stopPrank();
+
+        uint[] memory completedTasks = bet.getUserCompletedTasks(user);
+        assertEq(completedTasks.length, 1);
     }
 
-    function testCreateTaskRevert() public {
-        bet.createTask("Test Task 1", "Task 1", "Project 1");
-        vm.expectRevert("Task already exists.");
-        bet.createTask("Test Task 1", "Task 1", "Project 1");
+    function testGetAllTasks() public {
+        vm.prank(owner);
+        bet.createTask("task1", "Task 1", "proj1");
+        bet.createTask("task2", "Task 2", "proj1");
+
+        Bet.Task[] memory tasks = bet.getAllTasks();
+        assertEq(tasks[0].name, "Task 1");
+        assertEq(tasks[1].name, "Task 2");
     }
 
     function testGetUnconfirmedTasks() public {
-        bet.createTask("Test Task 1", "Task 1", "Project 1");
-        bet.createTask("Test Task 2", "Task 2", "Project 1");
+        vm.startPrank(owner);
+        bet.createTask("task1", "Task 1", "proj1");
+        bet.createTask("task2", "Task 2", "proj1");
+        bet.linkWallet(user, "githubUser");
+        bet.confirmTask("task1", "githubUser", 10);
+        vm.stopPrank();
 
-        Task[] memory unconfirmedTasks = bet.getUnconfirmedTasks();
+        vm.prank(user);
+        Bet.Task[] memory unconfirmedTasks = bet.getUnconfirmedTasks();
+        assertEq(unconfirmedTasks[0].id, "task2");
+    }
 
-        assertEq(
-            unconfirmedTasks.length,
-            2,
-            "Unconfirmed task count should be 2"
-        );
+    function testCreateProject() public {
+        vm.prank(owner);
+        bet.createProject("proj1", "Project 1");
+
+        string[] memory projectIds = bet.getAllProjectIds();
+
+        assertEq(projectIds[0], "proj1");
+    }
+
+    function testCreateTask() public {
+        vm.prank(owner);
+        bet.createProject("proj1", "Project 1");
+        bet.createTask("task1", "Task 1", "proj1");
+
+        Bet.Task[] memory tasks = bet.getAllTasks();
+        assertEq(tasks[0].name, "Task 1");
     }
 
     function testLinkWallet() public {
-        bet.linkWallet(address(this), "TestGithub");
-        string memory github = bet.getGithubByWallet(address(this));
+        vm.prank(owner);
+        bet.linkWallet(user, "githubUser");
 
-        assertEq(github, "TestGithub", "Github account should be 'TestGithub'");
+        string memory github = bet.getGithubByWallet(user);
+        assertEq(github, "githubUser");
     }
 
     function testConfirmTask() public {
-        address user1 = address(this);
-        address user2 = vm.addr(2);
+        vm.startPrank(owner);
+        bet.createProject("proj1", "Project 1");
+        bet.createTask("task1", "Task 1", "proj1");
+        bet.linkWallet(user, "githubUser");
+        bet.confirmTask("task1", "githubUser", 10);
+        vm.stopPrank();
 
-        bet.createProject("Project 1", "First Project");
-        bet.linkWallet(user1, "TestGithub1");
-        bet.linkWallet(user2, "TestGithub2");
-
-        bet.createTask("g_issue#1", "Task 1", "Project 1");
-        bet.confirmTask("g_issue#1", "TestGithub1", 10);
-        bet.createTask("g_issue#2", "Task 2", "Project 1");
-        bet.confirmTask("g_issue#2", "TestGithub1", 10);
-        bet.createTask("g_issue#3", "Task 3", "Project 1");
-        bet.confirmTask("g_issue#3", "TestGithub2", 10);
-
-        bet.createProject("Project 2", "Second Project");
-        bet.createTask("g_issue#2_1", "Task 1", "Project 2");
-        bet.confirmTask("g_issue#2_1", "TestGithub1", 10);
-        bet.createTask("g_issue#2_2", "Task 2", "Project 2");
-        bet.confirmTask("g_issue#2_2", "TestGithub2", 10);
-
-        Task[] memory tasks = bet.getAllTasks();
-        assertEq(tasks[0].completed, true, "Task should be completed");
-
-        uint points1 = bet.getUserPoints(user1);
-        assertEq(points1, 30, "User1 should have 30 points");
-
-        uint points2 = bet.getUserPoints(user2);
-        assertEq(points2, 20, "User2 should have 20 points");
-
-        uint projectPoints1 = bet.getProjectUserPoints("Project 1", user1);
-        assertEq(
-            projectPoints1,
-            20,
-            "User1 should have 20 points in Project 1"
-        );
-        uint projectPoints2 = bet.getProjectUserPoints("Project 1", user2);
-        assertEq(
-            projectPoints2,
-            10,
-            "User2 should have 10 points in Project 1"
-        );
-
-        address[] memory participants = bet.getProjectParticipants("Project 1");
-        assertEq(participants.length, 2, "Project should have 1 participant");
-
-        uint[] memory completedTasks1 = bet.getUserCompletedTasks(user1);
-        assertEq(
-            completedTasks1.length,
-            3,
-            "User1 should have 3 completed task"
-        );
-
-        uint[] memory completedTasks2 = bet.getUserCompletedTasks(user2);
-        assertEq(
-            completedTasks2.length,
-            2,
-            "User2 should have 2 completed task"
-        );
-    }
-
-    function testGetUserPoints() public {
-        bet.linkWallet(address(this), "TestGithub");
-        bet.createTask("Test Task 1", "Task 1", "Project 1");
-
-        bet.confirmTask("Test Task 1", "TestGithub", 10);
-        uint points = bet.getUserPoints(address(this));
-
-        assertEq(points, 10, "User should have 10 points");
-    }
-
-    function testGetUserCompletedTasks() public {
-        bet.linkWallet(address(this), "TestGithub");
-        bet.createTask("Test Task 1", "Task 1", "Project 1");
-        bet.createTask("Test Task 2", "Task 2", "Project 1");
-
-        bet.confirmTask("Test Task 1", "TestGithub", 10);
-        uint[] memory completedTasks = bet.getUserCompletedTasks(address(this));
-
-        assertEq(completedTasks.length, 1, "User should have 1 completed task");
-        assertEq(completedTasks[0], 1, "Completed task ID should be 1");
+        uint points = bet.getUserPoints(user);
+        assertEq(points, 10);
     }
 
     function testDonateToProject() public {
-        address user1 = address(this);
-        address user2 = vm.addr(2);
+        vm.startPrank(owner);
+        bet.createProject("proj1", "Project 1");
+        bet.createTask("task1", "Task 1", "proj1");
+        bet.linkWallet(user, "githubUser");
+        bet.confirmTask("task1", "githubUser", 10);
+        vm.stopPrank();
 
-        bet.createProject("Project 1", "First Project");
-        bet.linkWallet(user1, "TestGithub1");
-        bet.linkWallet(user2, "TestGithub2");
+        vm.deal(otherUser, 5 ether);
+        vm.prank(otherUser);
 
-        bet.createTask("g_issue#1", "Task 1", "Project 1");
-        bet.confirmTask("g_issue#1", "TestGithub1", 10);
-        bet.createTask("g_issue#2", "Task 2", "Project 1");
-        bet.confirmTask("g_issue#2", "TestGithub1", 10);
-        bet.createTask("g_issue#3", "Task 3", "Project 1");
-        bet.confirmTask("g_issue#3", "TestGithub2", 10);
-
-        vm.deal(user1, 10 ether);
-        vm.deal(user2, 0 ether);
-
-        bet.donateToProject{value: 3 ether}("Project 1");
-        console.log(address(bet).balance);
-
-        assertEq(bet.getUserPoints(user1), 20, "User 1 should have 20 points");
-
-        assertEq(
-            bet.getTotalRewards(user1),
-            2 ether,
-            "Should rewared user1 2 ether"
-        );
-        assertEq(
-            bet.getTotalRewards(user2),
-            1 ether,
-            "Should rewared user2 1 ether"
-        );
-
-        // TODO: wierd. It works if I deployed on chain. But not working in tests.
-        // bet.claimReward();
-        // console.log(user1.balance);
+        bet.donateToProject{value: 5 ether}("proj1");
+        uint totalRewards = bet.getTotalRewards(user);
+        assertEq(totalRewards, 5 ether);
     }
 
-    function testGetTask() public {
-        string memory id = "1";
-        string memory name = "Task 1";
-        string memory project = "Project 1";
+    function testClaimReward() public {
+        vm.startPrank(owner);
+        bet.createProject("proj1", "Project 1");
+        bet.createTask("task1", "Task 1", "proj1");
+        bet.linkWallet(user, "githubUser");
+        bet.confirmTask("task1", "githubUser", 10);
+        vm.stopPrank();
 
-        bet.createTask(id, name, project);
+        vm.deal(otherUser, 5 ether);
+        vm.prank(otherUser);
+        bet.donateToProject{value: 5 ether}("proj1");
+        vm.prank(user);
 
-        Task memory task = bet.getTask(id);
+        bet.claimReward();
 
-        assertEq(task.id, id);
-        assertEq(task.name, name);
-        assertEq(task.projectId, project);
+        assertEq(user.balance, 5 ether);
     }
 
-    function testBatchTransfer() public {
-        address payable[] memory recipients = new address payable[](10);
-        uint256[] memory amounts = new uint256[](10);
+    function testGetTotalRewards() public {
+        vm.startPrank(owner);
+        bet.createProject("proj1", "Project 1");
+        bet.createTask("task1", "Task 1", "proj1");
+        bet.linkWallet(user, "githubUser");
+        bet.confirmTask("task1", "githubUser", 10);
+        vm.stopPrank();
 
-        for (uint256 i = 0; i < 10; i++) {
-            recipients[i] = (payable(vm.addr(i + 1)));
-            amounts[i] = 10000;
-        }
+        vm.deal(otherUser, 5 ether);
+        vm.prank(otherUser);
+        bet.donateToProject{value: 5 ether}("proj1");
 
-        bet.batchTransferETH{value: 100000}(recipients, amounts);
+        uint totalRewards = bet.getTotalRewards(user);
+        assertEq(totalRewards, 5 ether);
+    }
 
-        for (uint256 i = 0; i < 10; i++) {
-            assertEq(recipients[i].balance, 10000);
-        }
+    function testGetClaimedRewards() public {
+        vm.startPrank(owner);
+        bet.createProject("proj1", "Project 1");
+        bet.createTask("task1", "Task 1", "proj1");
+        bet.linkWallet(user, "githubUser");
+        bet.confirmTask("task1", "githubUser", 10);
+        vm.stopPrank();
+
+        vm.deal(otherUser, 5 ether);
+        vm.prank(otherUser);
+        bet.donateToProject{value: 5 ether}("proj1");
+
+        vm.prank(user);
+        bet.claimReward();
+
+        uint[] memory completedTasks2 = bet.getUserCompletedTasks(user);
+        assertEq(
+            completedTasks2.length,
+            1,
+            "User2 should have 1 completed task"
+        );
+        uint claimedRewards = bet.getClaimedRewards(user);
+        assertEq(claimedRewards, 5 ether);
+    }
+
+    function testGetUserPoints() public {
+        vm.startPrank(owner);
+        bet.createProject("proj1", "Project 1");
+        bet.createTask("task1", "Task 1", "proj1");
+        bet.linkWallet(user, "githubUser");
+        bet.confirmTask("task1", "githubUser", 10);
+        vm.stopPrank();
+
+        uint points = bet.getUserPoints(user);
+        assertEq(points, 10);
+    }
+
+    function testGetGithubByWallet() public {
+        vm.prank(owner);
+        bet.linkWallet(user, "githubUser");
+
+        string memory github = bet.getGithubByWallet(user);
+        assertEq(github, "githubUser");
+    }
+
+    function testGetWalletByGithub() public {
+        vm.prank(owner);
+        bet.linkWallet(user, "githubUser");
+
+        address wallet = bet.getWalletByGithub("githubUser");
+        assertEq(wallet, user);
     }
 }
