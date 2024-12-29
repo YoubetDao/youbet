@@ -8,12 +8,14 @@ declare -A DEPLOY_SCRIPTS
 # Network configurations
 RPC_URLS["edu-test"]="https://rpc.open-campus-codex.gelato.digital"
 RPC_URLS["neo-test"]="https://neoxt4seed1.ngd.network"
+RPC_URLS["neo"]="https://mainnet-1.rpc.banelabs.org"
 RPC_URLS["op-test"]="https://sepolia.optimism.io"
 RPC_URLS["op"]="https://mainnet.optimism.io"
 
 # Verifier configurations
 VERIFIER_URLS["edu-test"]="https://opencampus-codex.blockscout.com/api/"
 VERIFIER_URLS["neo-test"]="https://xt4scan.ngd.network:8877/api/"
+VERIFIER_URLS["neo"]="https://xexplorer.neo.org/api/"
 VERIFIER_URLS["op-test"]="https://optimism-sepolia.blockscout.com/api/"
 VERIFIER_URLS["op"]="https://optimism.blockscout.com/api/"
 
