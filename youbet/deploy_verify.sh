@@ -6,6 +6,7 @@ declare -A VERIFIER_URLS
 declare -A DEPLOY_SCRIPTS
 
 # Network configurations
+RPC_URLS["monad-devnet"]="https://rpc-devnet.monadinfra.com/rpc/3fe540e310bbb6ef0b9f16cd23073b0a"
 RPC_URLS["edu-test"]="https://rpc.open-campus-codex.gelato.digital"
 RPC_URLS["neo-test"]="https://neoxt4seed1.ngd.network"
 RPC_URLS["neo"]="https://mainnet-1.rpc.banelabs.org"
@@ -13,6 +14,7 @@ RPC_URLS["op-test"]="https://sepolia.optimism.io"
 RPC_URLS["op"]="https://mainnet.optimism.io"
 
 # Verifier configurations
+VERIFIER_URLS["monad-devnet"]="https://explorer.monad-devnet.devnet101.com/api/"
 VERIFIER_URLS["edu-test"]="https://opencampus-codex.blockscout.com/api/"
 VERIFIER_URLS["neo-test"]="https://xt4scan.ngd.network:8877/api/"
 VERIFIER_URLS["neo"]="https://xexplorer.neo.org/api/"
