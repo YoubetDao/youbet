@@ -139,17 +139,34 @@ contract Bet is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         emit TaskCreated(_id, _name);
     }
 
+    // only allow link wallet once
     function linkWallet(address wallet, string memory github) public onlyOwner {
         require(
             keccak256(abi.encodePacked(walletToGithub[wallet])) ==
                 keccak256(abi.encodePacked("")),
             "Wallet already linked to a Github account."
         );
+        updateWallet(wallet, github);
+    }
 
+    // If user paid for us, we can update the wallet
+    // Let user link wallet by themselves in the future, but we need to make sure
+    // it is called by the github account owner.
+    function updateWallet(address wallet, string memory github) public onlyOwner {
         walletToGithub[wallet] = github;
         githubToWallet[github] = wallet;
-
         emit WalletLinked(wallet, github);
+    }
+
+    function createAndConfirmTask(
+        string memory _taskId,
+        string memory _name,
+        string memory projectId,
+        string memory github,
+        uint taskPoints
+    ) public {
+        createTask(_taskId, _name, projectId);
+        confirmTask(_taskId, github, taskPoints);
     }
 
     function confirmTask(
