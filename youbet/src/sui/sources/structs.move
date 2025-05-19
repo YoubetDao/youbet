@@ -2,9 +2,10 @@ module distributor::structs {
     use sui::object;
     use sui::balance::Balance;
     use sui::sui::SUI;
-    use sui::table::Table;
+    use sui::table::{Self, Table};
     use std::string::String;
     use sui::tx_context::TxContext;
+    use sui::transfer;
 
     /// Claim record for each GitHub ID
     public struct ClaimInfo has store {
@@ -13,7 +14,7 @@ module distributor::structs {
     }
 
     /// Red packet object
-    public struct RedPacket has key {
+    public struct RedPacket has key, store {
         id: object::UID,
         creator: address,
         total_amount: u64,
@@ -24,10 +25,11 @@ module distributor::structs {
     }
 
     /// Global state object (Singleton)
-    public struct State has key {
+    public struct State has key, store {
         id: object::UID,
-        signer: address,
-        owner: address
+        signer: vector<u8>,
+        owner: address,
+        red_packets: Table<vector<u8>, RedPacket>
     }
 
     // Constructor functions
@@ -57,12 +59,13 @@ module distributor::structs {
     }
 
     public fun new_state(
-        signer: address,
+        signer: vector<u8>,
         owner: address,
         ctx: &mut TxContext
     ): State {
         let id = object::new(ctx);
-        State { id, signer, owner }
+        let red_packets = table::new(ctx);
+        State { id, signer, owner, red_packets }
     }
 
     // Transfer functions
@@ -125,7 +128,7 @@ module distributor::structs {
     }
 
     // Getters and setters for State
-    public fun get_state_signer(state: &State): address {
+    public fun get_state_signer(state: &State): vector<u8> {
         state.signer
     }
 
@@ -133,11 +136,32 @@ module distributor::structs {
         state.owner
     }
 
-    public fun set_state_signer(state: &mut State, signer: address) {
-        state.signer = signer;
+
+    public fun add_red_packet_to_state(state: &mut State, uuid: vector<u8>, red_packet: RedPacket) {
+
+        state.red_packets.add(uuid, red_packet);
     }
 
-    public fun set_state_owner(state: &mut State, owner: address) {
+
+    public fun get_red_packet_from_state(state: &State, uuid: vector<u8>): &RedPacket {
+        // get red packet from state
+        table::borrow(&state.red_packets, uuid)
+    }
+
+    public fun get_red_packet_from_state_mut(state: &mut State, uuid: vector<u8>): &mut RedPacket {
+        // get mutable red packet from state
+        table::borrow_mut(&mut state.red_packets, uuid)
+    }
+
+    // public fun set_state_signer(state: &mut State, signer: vector<u8>, ctx: &mut TxContext)  {
+    //     // TODO: check if signer is owner  
+    //     assert!(tx_context::sender(ctx) == state.owner, 0);
+    //     state.signer = signer;
+    // }
+
+    public fun set_state_owner(state: &mut State, owner: address, ctx: &mut TxContext) {
+        // TODO: check if signer is owner  
+        assert!(tx_context::sender(ctx) == state.owner, 0);
         state.owner = owner;
     }
 } 

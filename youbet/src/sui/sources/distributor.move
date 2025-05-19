@@ -13,9 +13,10 @@ module distributor::distributor {
     use sui::balance;
     use sui::sui::SUI;
     use sui::ed25519;
-    use sui::table;
+    use sui::table::{Self, Table};
     use std::vector;
     use std::string;
+    use sui::bcs;
     use distributor::structs::{State, RedPacket};
     use distributor::events;
     use distributor::constants;
@@ -23,8 +24,21 @@ module distributor::distributor {
     #[allow(unused_const)]
     const ESignatureVerificationFailed: u64 = 1;
 
+    /// One-time witness for the module
+    public struct DISTRIBUTOR has drop {}
+
+    /// Initialize the module
+    fun init(witness: DISTRIBUTOR, ctx: &mut TxContext) {
+        let sender = tx_context::sender(ctx);
+        // convert sender address to bytes for public key
+        let signer_public_key = bcs::to_bytes(&sender);
+        let state = distributor::structs::new_state(signer_public_key, sender, ctx);
+        distributor::structs::share_state(state);
+    }
+
     /// Create a new red packet
     public entry fun create_red_packet(
+        state: &mut State,
         uuid: vector<u8>,
         github_ids: vector<vector<u8>>,
         amounts: vector<u64>,
@@ -68,7 +82,7 @@ module distributor::distributor {
             vector::push_back(&mut github_id_strings, string::utf8(*vector::borrow(&github_ids, i)));
             i = i + 1;
         };
-
+        distributor::structs::add_red_packet_to_state(state, uuid, red_packet);
         events::emit_red_packet_created(
             string::utf8(uuid),
             tx_context::sender(ctx),
@@ -77,19 +91,28 @@ module distributor::distributor {
             amounts
         );
 
-        distributor::structs::share_red_packet(red_packet);
+        // distributor::structs::share_red_packet(red_packet);
     }
 
     /// Claim red packet with signature verification
     public entry fun claim_red_packet(
-        state: &State,
-        red_packet: &mut RedPacket,
+        state: &mut State,
+        // red_packet: &mut RedPacket,
         uuid: vector<u8>,
         github_id: vector<u8>,
-        public_key: vector<u8>,
+        // public_key: vector<u8>,
         signature: vector<u8>,
+        message: vector<u8>,
         ctx: &mut TxContext
     ) {
+        // check signature is sign by state.signer
+        // let red_packet = distributor::structs::get_red_packet_from_state_mut(state, uuid);
+        let state_signer = distributor::structs::get_state_signer(state);
+        assert!(ed25519::ed25519_verify(&signature, &state_signer, &message), ESignatureVerificationFailed);
+
+
+
+        let red_packet = distributor::structs::get_red_packet_from_state_mut(state, uuid);
         assert!(distributor::structs::get_red_packet_status(red_packet) == constants::status_active(), constants::red_packet_not_active());
         let amount = {
             let claims = distributor::structs::get_red_packet_claims_mut(red_packet);
@@ -100,7 +123,7 @@ module distributor::distributor {
             vector::append(&mut message, uuid);
             vector::append(&mut message, github_id);
             assert!(
-                ed25519::ed25519_verify(&signature, &public_key, &message),
+                ed25519::ed25519_verify(&signature, &state_signer, &message),
                 ESignatureVerificationFailed
             );
             distributor::structs::get_claim_info_amount(claim_info)
@@ -138,15 +161,7 @@ module distributor::distributor {
         );
     }
 
-    /// Update signer address (only owner)
-    public entry fun update_signer(
-        state: &mut State,
-        new_signer: address,
-        ctx: &TxContext
-    ) {
-        assert!(tx_context::sender(ctx) == distributor::structs::get_state_owner(state), constants::not_creator());
-        distributor::structs::set_state_signer(state, new_signer);
-    }
+
 }
 
 
