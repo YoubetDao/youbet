@@ -98,12 +98,9 @@ module distributor::distributor {
     /// Claim red packet with signature verification
     public entry fun claim_red_packet(
         state: &mut State,
-        // red_packet: &mut RedPacket,
         uuid: vector<u8>,
         github_id: vector<u8>,
-        // public_key: vector<u8>,
         signature: vector<u8>,
-        // message: vector<u8>,
         ctx: &mut TxContext
     ) {
         // check signature is sign by state.signer
