@@ -4,7 +4,8 @@ module distributor::structs {
     use sui::sui::SUI;
     use sui::table::{Self, Table};
     use std::string::String;
-    use sui::tx_context::TxContext;
+    // use sui::tx_context::TxContext;
+    use std::string;
     // use sui::transfer;
 
     /// Claim record for each GitHub ID
@@ -29,7 +30,7 @@ module distributor::structs {
         id: object::UID,
         signer: vector<u8>,
         owner: address,
-        red_packets: Table<vector<u8>, RedPacket>
+        red_packets: Table<string::String, RedPacket>
     }
 
     // Constructor functions
@@ -137,18 +138,18 @@ module distributor::structs {
     }
 
 
-    public fun add_red_packet_to_state(state: &mut State, uuid: vector<u8>, red_packet: RedPacket) {
+    public fun add_red_packet_to_state(state: &mut State, uuid: string::String, red_packet: RedPacket) {
 
-        state.red_packets.add(uuid, red_packet);
+        table::add(&mut state.red_packets, uuid, red_packet);
     }
 
 
-    public fun get_red_packet_from_state(state: &State, uuid: vector<u8>): &RedPacket {
+    public fun get_red_packet_from_state(state: &State, uuid: string::String): &RedPacket {
         // get red packet from state
         table::borrow(&state.red_packets, uuid)
     }
 
-    public fun get_red_packet_from_state_mut(state: &mut State, uuid: vector<u8>): &mut RedPacket {
+    public fun get_red_packet_from_state_mut(state: &mut State, uuid: string::String): &mut RedPacket {
         // get mutable red packet from state
         table::borrow_mut(&mut state.red_packets, uuid)
     }

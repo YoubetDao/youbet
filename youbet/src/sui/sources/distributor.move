@@ -40,8 +40,8 @@ module distributor::distributor {
     /// Create a new red packet
     public entry fun create_red_packet(
         state: &mut State,
-        uuid: vector<u8>,
-        github_ids: vector<vector<u8>>,
+        uuid: string::String,
+        github_ids: vector<string::String>,
         amounts: vector<u64>,
         payment: Coin<SUI>,
         ctx: &mut TxContext
@@ -60,7 +60,7 @@ module distributor::distributor {
         let mut claims = table::new(ctx);
         i = 0;
         while (i < github_ids_len) {
-            let github_id = string::utf8(*vector::borrow(&github_ids, i));
+            let github_id = *vector::borrow(&github_ids, i);
             let amount = *vector::borrow(&amounts, i);
             let claim_info = distributor::structs::new_claim_info(false, amount);
             table::add(&mut claims, github_id, claim_info);
@@ -80,12 +80,12 @@ module distributor::distributor {
         let mut github_id_strings = vector::empty();
         i = 0;
         while (i < github_ids_len) {
-            vector::push_back(&mut github_id_strings, string::utf8(*vector::borrow(&github_ids, i)));
+            vector::push_back(&mut github_id_strings, *vector::borrow(&github_ids, i));
             i = i + 1;
         };
         distributor::structs::add_red_packet_to_state(state, uuid, red_packet);
         events::emit_red_packet_created(
-            string::utf8(uuid),
+            uuid,
             tx_context::sender(ctx),
             total_amount,
             github_id_strings,
@@ -98,8 +98,8 @@ module distributor::distributor {
     /// Claim red packet with signature verification
     public entry fun claim_red_packet(
         state: &mut State,
-        uuid: vector<u8>,
-        github_id: vector<u8>,
+        uuid: string::String,
+        github_id: string::String,
         signature: vector<u8>,
         ctx: &mut TxContext
     ) {
@@ -114,19 +114,19 @@ module distributor::distributor {
         assert!(distributor::structs::get_red_packet_status(red_packet) == constants::status_active(), constants::red_packet_not_active());
         let amount = {
             let claims = distributor::structs::get_red_packet_claims_mut(red_packet);
-            let claim_info = table::borrow_mut(claims, string::utf8(github_id));
+            let claim_info = table::borrow_mut(claims, github_id);
             assert!(!distributor::structs::get_claim_info_claimed(claim_info), constants::already_claimed());
             distributor::structs::set_claim_info_claimed(claim_info, true);
-            let mut message = vector::empty();
-            vector::append(&mut message, uuid);
-            vector::append(&mut message, github_id);
+            let mut message = std::string::utf8(b"");
+            string::append(&mut message, uuid);
+            string::append(&mut message, github_id);
 
-            let message_hash = hash::keccak256(&message);
-            let prefix = b"\x19Ethereum Signed Message:\n32";
-            let mut eth_message = vector::empty();
-            vector::append(&mut eth_message, prefix);
-            vector::append(&mut eth_message, message_hash);
-            let eth_signed_message_hash = hash::keccak256(&eth_message);
+            let message_hash = hash::keccak256(string::as_bytes(&message));
+            let prefix = b"Ethereum Signed Message:\n32";
+            let mut eth_message = std::string::utf8(b"");
+            string::append(&mut eth_message, string::utf8(prefix));
+            string::append(&mut eth_message, string::utf8(message_hash));
+            let eth_signed_message_hash = hash::keccak256(string::as_bytes(&eth_message));
 
             assert!(
                 ed25519::ed25519_verify(&signature, &state_signer, &eth_signed_message_hash),
@@ -140,8 +140,8 @@ module distributor::distributor {
         let remaining = distributor::structs::get_red_packet_remaining_amount(red_packet);
         distributor::structs::set_red_packet_remaining_amount(red_packet, remaining - amount);
         events::emit_red_packet_claimed(
-            string::utf8(uuid),
-            string::utf8(github_id),
+            uuid,
+            github_id,
             tx_context::sender(ctx),
             amount
         );
