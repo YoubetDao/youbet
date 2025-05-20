@@ -7,16 +7,18 @@ module distributor::distributor;
 // https://docs.sui.io/concepts/sui-move-concepts/conventions
 
 module distributor::distributor {
-    use sui::transfer;
-    use sui::tx_context::{Self, TxContext};
+    // use sui::transfer;
+    // use sui::tx_context::{Self, TxContext};
     use sui::coin::{Self, Coin};
     use sui::balance;
     use sui::sui::SUI;
     use sui::ed25519;
-    use sui::table::{Self, Table};
-    use std::vector;
+    use sui::hash;
+    use sui::ecdsa_r1;
+    use sui::table::{Self};
+    // use std::vector;
     use std::string;
-    use sui::bcs;
+    // use sui::bcs;
     use distributor::structs::{State, RedPacket};
     use distributor::events;
     use distributor::constants;
@@ -30,8 +32,7 @@ module distributor::distributor {
     /// Initialize the module
     fun init(witness: DISTRIBUTOR, ctx: &mut TxContext) {
         let sender = tx_context::sender(ctx);
-        // convert sender address to bytes for public key
-        let signer_public_key = bcs::to_bytes(&sender);
+        let signer_public_key = vector[26, 59, 248, 15, 36, 21, 95, 58, 153, 40, 50, 86, 237, 94, 201, 180, 252, 24, 137, 9, 211, 128, 218, 82, 124, 121, 186, 41, 149, 25, 172, 185, 21];
         let state = distributor::structs::new_state(signer_public_key, sender, ctx);
         distributor::structs::share_state(state);
     }
@@ -102,13 +103,13 @@ module distributor::distributor {
         github_id: vector<u8>,
         // public_key: vector<u8>,
         signature: vector<u8>,
-        message: vector<u8>,
+        // message: vector<u8>,
         ctx: &mut TxContext
     ) {
         // check signature is sign by state.signer
         // let red_packet = distributor::structs::get_red_packet_from_state_mut(state, uuid);
         let state_signer = distributor::structs::get_state_signer(state);
-        assert!(ed25519::ed25519_verify(&signature, &state_signer, &message), ESignatureVerificationFailed);
+        // assert!(ed25519::ed25519_verify(&signature, &state_signer, &message), ESignatureVerificationFailed);
 
 
 
@@ -122,8 +123,16 @@ module distributor::distributor {
             let mut message = vector::empty();
             vector::append(&mut message, uuid);
             vector::append(&mut message, github_id);
+
+            let message_hash = hash::keccak256(&message);
+            let prefix = b"\x19Ethereum Signed Message:\n32";
+            let mut eth_message = vector::empty();
+            vector::append(&mut eth_message, prefix);
+            vector::append(&mut eth_message, message_hash);
+            let eth_signed_message_hash = hash::keccak256(&eth_message);
+
             assert!(
-                ed25519::ed25519_verify(&signature, &state_signer, &message),
+                ed25519::ed25519_verify(&signature, &state_signer, &eth_signed_message_hash),
                 ESignatureVerificationFailed
             );
             distributor::structs::get_claim_info_amount(claim_info)

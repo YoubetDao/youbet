@@ -1,11 +1,11 @@
 module distributor::structs {
-    use sui::object;
+    // use sui::object;
     use sui::balance::Balance;
     use sui::sui::SUI;
     use sui::table::{Self, Table};
     use std::string::String;
     use sui::tx_context::TxContext;
-    use sui::transfer;
+    // use sui::transfer;
 
     /// Claim record for each GitHub ID
     public struct ClaimInfo has store {
