@@ -12,13 +12,10 @@ module distributor::distributor {
     use sui::coin::{Self, Coin};
     use sui::balance;
     use sui::sui::SUI;
-    use sui::ed25519;
+    use sui::ecdsa_k1;
     use sui::hash;
-    use sui::ecdsa_r1;
     use sui::table::{Self};
-    // use std::vector;
     use std::string;
-    // use sui::bcs;
     use distributor::structs::{State, RedPacket};
     use distributor::events;
     use distributor::constants;
@@ -30,7 +27,7 @@ module distributor::distributor {
     public struct DISTRIBUTOR has drop {}
 
     /// Initialize the module
-    fun init(witness: DISTRIBUTOR, ctx: &mut TxContext) {
+    fun init(_witness: DISTRIBUTOR, ctx: &mut TxContext) {
         let sender = tx_context::sender(ctx);
         let signer_public_key = vector[26, 59, 248, 15, 36, 21, 95, 58, 153, 40, 50, 86, 237, 94, 201, 180, 252, 24, 137, 9, 211, 128, 218, 82, 124, 121, 186, 41, 149, 25, 172, 185, 21];
         let state = distributor::structs::new_state(signer_public_key, sender, ctx);
@@ -92,10 +89,10 @@ module distributor::distributor {
             amounts
         );
 
-        // distributor::structs::share_red_packet(red_packet);
+
     }
 
-    /// Claim red packet with signature verification
+    //Claim red packet with signature verification
     public entry fun claim_red_packet(
         state: &mut State,
         uuid: string::String,
@@ -103,12 +100,7 @@ module distributor::distributor {
         signature: vector<u8>,
         ctx: &mut TxContext
     ) {
-        // check signature is sign by state.signer
-        // let red_packet = distributor::structs::get_red_packet_from_state_mut(state, uuid);
         let state_signer = distributor::structs::get_state_signer(state);
-        // assert!(ed25519::ed25519_verify(&signature, &state_signer, &message), ESignatureVerificationFailed);
-
-
 
         let red_packet = distributor::structs::get_red_packet_from_state_mut(state, uuid);
         assert!(distributor::structs::get_red_packet_status(red_packet) == constants::status_active(), constants::red_packet_not_active());
@@ -122,16 +114,17 @@ module distributor::distributor {
             string::append(&mut message, github_id);
 
             let message_hash = hash::keccak256(string::as_bytes(&message));
-            let prefix = b"Ethereum Signed Message:\n32";
+            let prefix = b"\x19Ethereum Signed Message:\n32";
             let mut eth_message = std::string::utf8(b"");
             string::append(&mut eth_message, string::utf8(prefix));
             string::append(&mut eth_message, string::utf8(message_hash));
             let eth_signed_message_hash = hash::keccak256(string::as_bytes(&eth_message));
 
-            assert!(
-                ed25519::ed25519_verify(&signature, &state_signer, &eth_signed_message_hash),
-                ESignatureVerificationFailed
-            );
+
+            // https://docs-zh.sui-book.com/guides/developer/cryptography/signing/
+            let recovered = ecdsa_k1::secp256k1_ecrecover(&signature, &eth_signed_message_hash, 1);
+            assert!(recovered == state_signer, ESignatureVerificationFailed);
+
             distributor::structs::get_claim_info_amount(claim_info)
         };
         let balance = distributor::structs::get_red_packet_balance_mut(red_packet);
