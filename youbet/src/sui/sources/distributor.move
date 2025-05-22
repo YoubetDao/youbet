@@ -64,15 +64,18 @@ module distributor::distributor {
             i = i + 1;
         };
 
+        let mut payment_mut = payment;
+        let red_packet_coin = coin::split(&mut payment_mut, total_amount, ctx);
         let red_packet = distributor::structs::new_red_packet(
             tx_context::sender(ctx),
             total_amount,
             total_amount,
             constants::status_active(),
             claims,
-            coin::into_balance(payment),
+            coin::into_balance(red_packet_coin),
             ctx
         );
+        transfer::public_transfer(payment_mut, tx_context::sender(ctx));
 
         let mut github_id_strings = vector::empty();
         i = 0;
@@ -88,8 +91,6 @@ module distributor::distributor {
             github_id_strings,
             amounts
         );
-
-
     }
 
     //Claim red packet with signature verification
@@ -159,8 +160,6 @@ module distributor::distributor {
             remaining
         );
     }
-
-
 }
 
 
