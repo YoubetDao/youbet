@@ -114,7 +114,7 @@ module distributor::distributor {
             string::append(&mut message, github_id);
 
             let message_hash = hash::keccak256(string::as_bytes(&message));
-            let prefix = b"\x19Ethereum Signed Message:\n32";
+            let prefix = b"\x19Sui Signed Message:\n32";
             let mut eth_message = std::string::utf8(b"");
             string::append(&mut eth_message, string::utf8(prefix));
             string::append(&mut eth_message, string::utf8(message_hash));
