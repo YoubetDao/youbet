@@ -13,6 +13,10 @@ RPC_URLS["neo-test"]="https://neoxt4seed1.ngd.network"
 RPC_URLS["neo"]="https://mainnet-1.rpc.banelabs.org"
 RPC_URLS["op-test"]="https://sepolia.optimism.io"
 RPC_URLS["op"]="https://mainnet.optimism.io"
+RPC_URLS["base-test"]="https://sepolia.base.org"
+RPC_URLS["bsc-test"]="https://data-seed-prebsc-1-s1.bnbchain.org:8545"
+RPC_URLS["bsc"]="https://bsc-dataseed.bnbchain.org"
+RPC_URLS["ju-test"]="https://testnet-rpc.juchain.org"
 
 # Verifier configurations
 VERIFIER_URLS["monad-devnet"]="https://explorer.monad-devnet.devnet101.com/api/"
@@ -22,6 +26,10 @@ VERIFIER_URLS["neo-test"]="https://xt4scan.ngd.network:8877/api/"
 VERIFIER_URLS["neo"]="https://xexplorer.neo.org/api/"
 VERIFIER_URLS["op-test"]="https://optimism-sepolia.blockscout.com/api/"
 VERIFIER_URLS["op"]="https://optimism.blockscout.com/api/"
+VERIFIER_URLS["base-test"]="https://base-sepolia.blockscout.com/api/"
+VERIFIER_URLS["bsc-test"]="https://api-testnet.bscscan.com/api"
+VERIFIER_URLS["bsc"]="https://api.bscscan.com/api"
+VERIFIER_URLS["ju-test"]="https://testnet.juscan.io/api/"
 
 # Script configurations
 DEPLOY_SCRIPTS["bet"]="script/BetDeploy.s.sol:BetScript"
