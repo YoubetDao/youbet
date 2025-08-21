@@ -29,12 +29,10 @@ contract DistributorTest is Test {
         vm.startPrank(owner);
         address proxy = Upgrades.deployUUPSProxy(
             "Distributor.sol:Distributor",
-            abi.encodeCall(
-                Distributor.initialize,
-                (signer, owner, address(token))
-            )
+            abi.encodeCall(Distributor.initialize, (signer, owner))
         );
         distributor = Distributor(proxy);
+
         vm.stopPrank();
 
         token.mint(user1, INITIAL_BALANCE);
@@ -52,8 +50,9 @@ contract DistributorTest is Test {
 
         vm.startPrank(user1);
         token.approve(address(distributor), 80 * 10 ** 18);
-        distributor.createRedPacket(
+        distributor.createReward(
             uuid,
+            address(token),
             githubIds,
             amounts,
             "test-creator-id",
@@ -75,13 +74,13 @@ contract DistributorTest is Test {
         bytes memory signature = abi.encodePacked(r, s, v);
 
         vm.prank(user2);
-        distributor.claimRedPacket(uuid, githubIds[0], signature);
+        distributor.claimReward(uuid, githubIds[0], signature);
 
         assertEq(token.balanceOf(user2), 50 * 10 ** 18);
         assertEq(token.balanceOf(address(distributor)), 30 * 10 ** 18);
 
         vm.prank(user1);
-        distributor.refundRedPacket(uuid);
+        distributor.refundReward(uuid);
 
         assertEq(token.balanceOf(user1), INITIAL_BALANCE - 50 * 10 ** 18);
         assertEq(token.balanceOf(address(distributor)), 0);
