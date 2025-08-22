@@ -4,7 +4,7 @@ pragma solidity ^0.8.19;
 import {Test, console2} from "forge-std/Test.sol";
 import {Distributor} from "../src/Distributor.sol";
 import {MockERC20} from "./mocks/MockERC20.sol";
-import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
+import {UnsafeUpgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 
 contract DistributorTest is Test {
     Distributor public distributor;
@@ -27,8 +27,11 @@ contract DistributorTest is Test {
         token = new MockERC20("Test Token", "TEST");
 
         vm.startPrank(owner);
-        address proxy = Upgrades.deployUUPSProxy(
-            "Distributor.sol:Distributor",
+        // Deploy implementation contract first
+        Distributor impl = new Distributor();
+        // Deploy proxy using UnsafeUpgrades (no compatibility checks)
+        address proxy = UnsafeUpgrades.deployUUPSProxy(
+            address(impl),
             abi.encodeCall(Distributor.initialize, (signer, owner))
         );
         distributor = Distributor(proxy);
